@@ -1,0 +1,36 @@
+! General input file
+**SYSTEM
+  *MOLECULE
+    NCONF=1 Name = PhOH phase =ccl4
+   .SYMNUM
+      1
+   .FILE
+     mol.log
+!   .WFN  ! Possible keywords : SCF(HF,DFT), MP2 and CCSD
+!     SCF
+! Error termination test
+!  *MOLECULE
+!    nconf = 2
+!   .FILES
+!     mol.log
+!     errter.log
+! Imaginary frequencies test
+!  *MOLECULE
+!   .FILES
+!     imagi.log
+**END SYSTEM
+
+**PROP
+  *QVIB
+   .SCALING     ! Frequencies scaling factor
+     1.0d0
+   .TYPE        ! Possible keywords : GAS and ROT
+     GAS
+!   .THR
+!     100
+  *FREE
+   .TYPE        ! Possible keywords : INDEP, BOLTZ and QUAD
+     INDEP
+   .NOENAN      ! Possible options  : .ENAN and .NOENAN
+   .DISTIN      ! Possible options  : .DISTIN and .INDIST
+**END PROP

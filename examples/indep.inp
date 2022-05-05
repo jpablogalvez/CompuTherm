@@ -1,0 +1,60 @@
+! General input file
+**SYSTEM
+  *MOLECULE
+    NCONF=1 Name = PhOH phase =ccl4
+   .SYMNUM
+      1
+   .FILE
+     fenol_b3lypd3_n07d_ccl4_of.log
+  *MOLECULE
+    NCONF=1 Name = (PhOH)2 Phase = ccl4
+   .SYMNUM
+      1
+   .FILE
+     dimero_b3lypd3_n07d_ccl4_of.log
+  *MOLECULE
+    NCONF=2 Name=(PhOH)3 Phase=ccl4
+   .SYMNUM
+      1 1
+   .FILE
+     trimero-ddu_b3lypd3_n07d_ccl4_of.log
+     trimero-ddd_b3lypd3_n07d_ccl4_of.log
+  *MOLECULE
+    Nconf=3 Name=(PhOH)4 Phase=ccl4
+   .SYMNUM
+      1 1 1
+   .FILE
+     tetramero_p-dddd_b3lypd3_n07d_ccl4_of.log
+     tetramero_p-uddd_b3lypd3_n07d_ccl4_of.log
+     tetramero_b-udud_b3lypd3_n07d_ccl4_of.log
+**END SYSTEM
+
+**PROP
+  *QVIB
+   .SCALING     ! Frequencies scaling factor
+     1.0d0
+   .TYPE        ! Possible keywords : GAS and ROT
+     GAS
+  *FREE
+   .TYPE        ! Possible keywords : INDEP, BOLTZ and QUAD
+     INDEP
+   .NOENAN      ! Possible options  : .ENAN and .NOENAN
+   .DISTIN      ! Possible options  : .DISTIN and .INDIST
+**END PROP
+
+**REACTOR
+!  *PHASES
+!   .NPHASE
+!    1
+!   .NAMES
+!    ccl4
+  *REACTIONS
+   .NREAC
+     3
+   .SCHEMES
+    2 PhOH = (PhOH)2
+    3PhOH=(PhOH)3
+    4 PhOH = (PhOH)4
+!    PhOH + (PhOH)2 = (PhOH)3
+!    3 (PhOH)2 = 2 (PhOH)3
+**END REACTOR
