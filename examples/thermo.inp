@@ -23,8 +23,8 @@
    .NFRAG
       3
    .FILE
-     trimero-ddu_b3lypd3_n07d_ccl4_of.log
      trimero-ddd_b3lypd3_n07d_ccl4_of.log
+     trimero-ddu_b3lypd3_n07d_ccl4_of.log
   *MOLECULE
     Nconf=3 Name=(PhOH)4 Phase=ccl4
    .SYMNUM
@@ -41,16 +41,12 @@
   *QVIB
    .SCALING     ! Frequencies scaling factor
      1.0d0
-   .TYPE        ! Possible keywords : GAS and ROT
+   .TYPE        ! Possible keywords : QHO, ROT and GAS (default)
      GAS
   *FREE
-   .TYPE        ! Possible keywords : INDEP, BOLTZ and QUAD
-     BOLTZ
-   .SOLN        ! Possible options  : .GAS and .SOLN
-   .ENAN        ! Possible options  : .ENAN and .NOENAN
-   .INDIST      ! Possible options  : .DISTIN and .INDIST
-!   .NOENAN      ! Possible options  : .ENAN and .NOENAN
-!   .DISTIN      ! Possible options  : .DISTIN and .INDIST
+!   .SOLN        ! Possible options  : .SOLN and .GAS (default)
+   .ENAN        ! Possible options  : .ENAN and .NOENAN (default)
+   .INDIST      ! Possible options  : .INDIST and .DISTIN (default)
 **END PROP
 
 **REACTOR

@@ -1,0 +1,25 @@
+! General input file
+**SYSTEM
+  *MOLECULE
+    NCONF=1 Name = PhOH phase =ccl4
+   .SYMNUM
+      1
+   .NFRAG
+      3
+   .FILE
+      trimero-ddd_b3lypd3_n07d_ccl4_of.log
+**END SYSTEM
+
+**PROP
+  *QVIB
+   .SCALING     ! Frequencies scaling factor
+     1.0d0
+   .TYPE        ! Possible keywords : GAS, QHO and ROT
+     GAS
+  *FREE
+   .GAS         ! Possible options  : .GAS and .SOLN
+   .ENAN        ! Possible options  : .ENAN and .NOENAN (default)
+   .INDIST      ! Possible options  : .INDIST and .DISTIN (default)
+!   .NOENAN      ! Possible options  : .ENAN and .NOENAN (default)
+!   .DISTIN      ! Possible options  : .INDIST and .DISTIN (default)
+**END PROP

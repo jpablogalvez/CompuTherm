@@ -1,0 +1,6 @@
+! General input file
+**SYSTEM
+  *MOLECULE
+   .FILE
+      trimero-ddd_b3lypd3_n07d_ccl4_of.log
+**END SYSTEM

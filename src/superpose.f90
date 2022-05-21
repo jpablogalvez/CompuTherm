@@ -3,8 +3,6 @@
        module superpose
 ! 
        implicit none
-! 
-       public :: drotctk
 !
        contains
 !
@@ -342,7 +340,7 @@
 !
 ! Calculating the covariance matrix
 !
-       call DGEMM('N','T',3,3,nat,1.0d0,rcoord,3,fcoord,3,0.0d0,cova,3)  ! FLAG: call dgemm correctly
+       call DGEMM('N','T',3,3,nat,1.0d0,rcoord,3,fcoord,3,0.0d0,cova,3)
 !
 ! Assemblying the upper triangular part of the symmetric matrix
 !  to be diagonalized

@@ -132,8 +132,8 @@
 !
 !======================================================================!
 !
-       subroutine read_inp(inp,nmol,mol,thr,fact,fqvib,ffree,          &
-                           fenan,fpermu,fsoln,nreac,reac)
+       subroutine read_inp(inp,nmol,mol,thr,fact,fqvib,fenan,          &
+                           fpermu,fsoln,nreac,reac)
 !
        use datatypes
        use utils
@@ -146,7 +146,6 @@
        type(reaction),dimension(:),allocatable,intent(out)  ::  reac    !  Reactions information
        character(len=leninp),intent(in)                     ::  inp     !  General input file name
        character(len=8),intent(out)                         ::  fqvib   !  Qvib calculation flag
-       character(len=8),intent(out)                         ::  ffree   !  Free energy calculation flag
        real(kind=8),intent(out)                             ::  thr     !  Threshold frequency
        real(kind=8),intent(out)                             ::  fact    !  Frequencies scaling factor
        integer,intent(out)                                  ::  nmol    !  Number of chemical species
@@ -166,7 +165,6 @@
        fact   = 1.0d0
        thr    = 0.0d0
        fqvib  = 'GAS'
-       ffree  = 'INDEP'
        fenan  = .FALSE.
        fpermu = .FALSE.
        fsoln  = .FALSE.
@@ -207,7 +205,7 @@
          key = uppercase(key)
 ! Reading the different input file blocks       
          select case (key)
-           case ('*MOL','*MOLECULE')
+           case ('*MOL','*MOLEC','*MOLECULE','*AGG','*AGGREGATE')
              nmol = nmol + 1
          end select  
        end do
@@ -262,7 +260,7 @@
              call findline(line,'blck','**PROPERTIES')
 !
              call read_prop(line,'**PROPERTIES',thr,fact,fqvib,        &
-                            ffree,fenan,fpermu,fsoln)
+                            fenan,fpermu,fsoln)
 !      
            case ('**REACT','**REAC','**REACTOR')
 !~              write(*,*) 
@@ -387,7 +385,8 @@
 ! Reading MOLECULE section keywords 
 ! ---------------------------------
 !
-       mol(imol)%nconf = 1
+       mol(imol)%nconf  = 1
+       mol(imol)%npermu = 1
 !
        write(mol(imol)%molname,'(I5)') imol
        mol(imol)%molname = adjustl(mol(imol)%molname) 
@@ -447,6 +446,10 @@
 !
 ! Reading MOLECULE section options 
 !
+       allocate(mol(imol)%frag(1))
+       mol(imol)%frag(1) = 1
+       mol(imol)%nfrag   = 1
+!
        if ( mol(imol)%nconf .gt. 1 ) then
          do i = 1, mol(imol)%nconf 
            write(mol(imol)%conf(i)%inp,'(I5)') i
@@ -487,7 +490,7 @@
 !~              write(*,*) '    Reading .SYMNUM option'
 !~              write(*,*)
 !
-             read(uniinp,*) mol(imol)%conf(:)%symnum
+             read(uniinp,*) mol(imol)%conf(:)%symnum   ! FLAG: check if bad introduced
 !
              call findline(key,'sect',sect)
              if ( key(1:1) .eq. '*' ) return
@@ -513,6 +516,7 @@
                line = adjustl(line)
              end do
 !
+             deallocate(mol(imol)%frag)
              allocate(mol(imol)%frag(mol(imol)%nfrag))
 !
              read(key,*) mol(imol)%frag(:)
@@ -530,7 +534,7 @@
 !
 !======================================================================!
 !
-       subroutine read_prop(key,blck,thr,fact,fqvib,ffree,             &
+       subroutine read_prop(key,blck,thr,fact,fqvib,             &
                             fenan,fpermu,fsoln)
 !
        use datatypes
@@ -542,13 +546,12 @@
 !
        character(len=lenline),intent(inout)  ::  key     !
        character(len=*),intent(in)           ::  blck    !  Block name
-       character(len=8),intent(out)          ::  fqvib   !  Qvib calculation flag
-       character(len=8),intent(out)          ::  ffree   !  Free energy calculation flag
-       real(kind=8),intent(out)              ::  thr     !  Threshold frequency
-       real(kind=8),intent(out)              ::  fact    !  Frequencies scaling factor
-       logical,intent(out)                   ::  fenan   !  Enantiomers calculation flag
-       logical,intent(out)                   ::  fpermu  !  Permutations calculation flag
-       logical,intent(out)                   ::  fsoln   !  Standard state flag
+       character(len=8),intent(inout)        ::  fqvib   !  Qvib calculation flag
+       real(kind=8),intent(inout)            ::  thr     !  Threshold frequency
+       real(kind=8),intent(inout)            ::  fact    !  Frequencies scaling factor
+       logical,intent(inout)                 ::  fenan   !  Enantiomers calculation flag
+       logical,intent(inout)                 ::  fpermu  !  Permutations calculation flag
+       logical,intent(inout)                 ::  fsoln   !  Standard state flag
 !
 ! Local variables
 !
@@ -556,15 +559,6 @@
 !
 ! Reading PROPERTIES block sections 
 ! ---------------------------------
-!
-       fact  = 1.0d0
-       thr   = 0.0d0
-       fqvib = 'GAS'
-!
-       ffree  = 'INDEP'
-       fenan  = .FALSE.
-       fpermu = .FALSE.
-       fsoln  = .FALSE.
 !
        do
 ! Changing lowercase letters by uppercase letters 
@@ -599,7 +593,7 @@
 !
              call findline(key,'sect','*FREE')
 !
-             call read_free(key,'*FREE',ffree,fenan,fpermu,fsoln)
+             call read_free(key,'*FREE',fenan,fpermu,fsoln)
 !
            case ('**END')
 !~              write(*,*) 'Exiting from **PROPERTIES block'
@@ -626,9 +620,9 @@
 !
        character(len=lenline),intent(inout)  ::  key    !  
        character(len=*),intent(in)           ::  sect   !  Section name
-       character(len=8),intent(out)          ::  fqvib  !  Qvib calculation flag
-       real(kind=8),intent(out)              ::  fact   !  Frequencies scaling factor
-       real(kind=8),intent(out)              ::  thr    !  Threshold frequency
+       character(len=8),intent(inout)        ::  fqvib  !  Qvib calculation flag
+       real(kind=8),intent(inout)            ::  fact   !  Frequencies scaling factor
+       real(kind=8),intent(inout)            ::  thr    !  Threshold frequency
 !
 ! Local variables
 !
@@ -636,10 +630,6 @@
 !
 ! Reading QVIB section options 
 ! ----------------------------
-!
-       fact  = 1.0d0
-       thr   = 0.0d0
-       fqvib = 'GAS'
 !
        do
 ! Changing lowercase letters by uppercase letters 
@@ -700,7 +690,7 @@
 !
 !======================================================================!
 !
-       subroutine read_free(key,sect,ffree,fenan,fpermu,fsoln)
+       subroutine read_free(key,sect,fenan,fpermu,fsoln)
 !
        use datatypes
        use utils
@@ -711,10 +701,9 @@
 !
        character(len=lenline),intent(inout)  ::  key     !  
        character(len=*),intent(in)           ::  sect    !  Section name
-       character(len=8),intent(out)          ::  ffree   !  Qvib calculation flag
-       logical,intent(out)                   ::  fenan   !  Enantiomers calculation flag
-       logical,intent(out)                   ::  fpermu  !  Permutations calculation flag
-       logical,intent(out)                   ::  fsoln   !  Standard state flag
+       logical,intent(inout)                 ::  fenan   !  Enantiomers calculation flag
+       logical,intent(inout)                 ::  fpermu  !  Permutations calculation flag
+       logical,intent(inout)                 ::  fsoln   !  Standard state flag
 !
 ! Local variables
 !
@@ -722,11 +711,6 @@
 !
 ! Reading FREE section options 
 ! ----------------------------
-!
-       ffree  = 'INDEP'
-       fenan  = .FALSE.
-       fpermu = .FALSE.
-       fsoln  = .FALSE.
 !
        do
 ! Changing lowercase letters by uppercase letters 
@@ -736,29 +720,6 @@
          if ( posi .gt. 0 ) key = key(:posi-1)
 ! Reading the different block sections       
          select case (key)
-           case ('.TYPE')
-!
-!~              write(*,*) '    Reading .TYPE option'
-!~              write(*,*)
-!
-             read(uniinp,*) ffree
-!
-             ffree = uppercase(ffree)
-!
-             select case ( ffree )
-               case ('INDEP','INDEPENDENT')
-                 ffree = 'INDEP' 
-               case ('BOLTZ','BOLTZMANN') 
-                 ffree = 'BOLTZ' 
-               case ('QUAD','QUADRATURE') 
-                 ffree = 'QUAD'                   
-               case default        
-                 call errkeyoptsect(ffree,key,sect)  
-             end select
-!
-             call findline(key,'sect',sect)
-             if ( key(1:1) .eq. '*' ) return
-!
            case ('.ENAN','.ENANTIOMER','.ENANTIOMERS')
 !
 !~              write(*,*) '    Reading .ENAN option'
@@ -844,7 +805,7 @@
        character(len=lenline),intent(inout)                 ::  key    !
        character(len=*),intent(in)                          ::  blck   !  Block name
        integer,intent(in)                                   ::  nmol   !  Number of molecules
-       integer,intent(out)                                  ::  nreac  !  Number of reactions
+       integer,intent(inout)                                ::  nreac  !  Number of reactions
 !
 ! Local variables
 !
@@ -852,8 +813,6 @@
 !
 ! Reading REACTOR block sections 
 ! ------------------------------
-!
-       nreac = 0
 !
        do
 ! Changing lowercase letters by uppercase letters 
