@@ -11,7 +11,7 @@
 !
 !======================================================================!
 !
-       subroutine read_g16(nmol,mol)
+       subroutine read_g16(fcalc,nmol,mol)
 !
        use datatypes
        use utils,     only: print_end
@@ -23,6 +23,7 @@
 !
        type(molecule),dimension(nmol),intent(inout)  ::  mol      !  Input file name
        integer,intent(in)                            ::  nmol     !  Number of atoms
+       character(len=8),intent(in)                   ::  fcalc    !  Calculation information flag
 !
 ! Local variables
 !
@@ -37,7 +38,7 @@
 ! Reading Gaussian16 input files
 !
        do imol = 1, nmol
-         call chck_log(mol(imol)%conf(1)%inp,mol(imol)%nat)
+         call chk_log(mol(imol)%conf(1)%inp,mol(imol)%nat,fcalc)
 !
          mol(imol)%conf(1)%chiral = .FALSE.
          mol(imol)%conf(1)%nequi  = 1
@@ -52,7 +53,7 @@
                   mol(imol)%atmass(mol(imol)%nat),                     &
                   mol(imol)%znum(mol(imol)%nat))
 !
-         call read_log(mol(imol)%conf(1)%inp,                          &
+         call read_log(fcalc,mol(imol)%conf(1)%inp,                    &
                        mol(imol)%nat,                                  &
                        mol(imol)%conf(1)%coord,                        &
                        mol(imol)%atname,                               &
@@ -74,7 +75,7 @@
 !
            do iconf = 2, mol(imol)%nconf
 !
-             call chck_log(mol(imol)%conf(iconf)%inp,nat)
+             call chk_log(mol(imol)%conf(iconf)%inp,nat,fcalc)
 !
              mol(imol)%conf(iconf)%chiral = .FALSE.
              mol(imol)%conf(iconf)%nequi  = 1
@@ -108,7 +109,7 @@
                                 inten(mol(imol)%conf(iconf)%dof),      &
                       mol(imol)%conf(iconf)%coord(3,mol(imol)%nat))
 !
-             call read_log(mol(imol)%conf(iconf)%inp,                  &  ! FLAG : check that inputs include the same atoms
+             call read_log(fcalc,mol(imol)%conf(iconf)%inp,            &
                            mol(imol)%nat,                              &
                            mol(imol)%conf(iconf)%coord,                &
                            atname,znum,atmass,                         &
@@ -132,8 +133,9 @@
 !
 !======================================================================!
 !
-       subroutine read_inp(inp,nmol,mol,thr,fact,fqvib,fenan,          &
-                           fpermu,fsoln,nreac,reac)
+       subroutine read_inp(inp,nmol,mol,cutoff,fact,fwhm,doir,ffree,   &
+                           fentha,fentro,forder,fcalc,fenan,fpermu,    &
+                           fsoln,nreac,reac,mconf)
 !
        use datatypes
        use utils
@@ -145,11 +147,18 @@
        type(molecule),dimension(:),allocatable,intent(out)  ::  mol     !  Molecules information
        type(reaction),dimension(:),allocatable,intent(out)  ::  reac    !  Reactions information
        character(len=leninp),intent(in)                     ::  inp     !  General input file name
-       character(len=8),intent(out)                         ::  fqvib   !  Qvib calculation flag
-       real(kind=8),intent(out)                             ::  thr     !  Threshold frequency
+       character(len=8),intent(out)                         ::  ffree   !  Free energy calculation flag
+       character(len=8),intent(out)                         ::  fentha  !  Enthalpy calculation flag
+       character(len=8),intent(out)                         ::  fentro  !  Entropy calculation flag
+       character(len=8),intent(out)                         ::  fcalc   !  Calculation information flag
+       character(len=8),intent(out)                         ::  forder  !  Conformations order flag
+       real(kind=8),intent(out)                             ::  cutoff  !  Cutoff frequency
        real(kind=8),intent(out)                             ::  fact    !  Frequencies scaling factor
+       real(kind=8),intent(inout)                           ::  fwhm    !  Full width at half maximum
        integer,intent(out)                                  ::  nmol    !  Number of chemical species
        integer,intent(out)                                  ::  nreac   !  Number of reactions
+       integer,intent(out)                                  ::  mconf   !  Maximum number of conformers
+       logical,intent(out)                                  ::  doir    !  IR calculation flag
        logical,intent(out)                                  ::  fenan   !  Enantiomers calculation flag
        logical,intent(out)                                  ::  fpermu  !  Permutations calculation flag
        logical,intent(out)                                  ::  fsoln   !  Standard state flag
@@ -163,11 +172,23 @@
 ! Setting defaults  ! FLAG: missing default file names (breaks if **SYSTEM is not defined)
 !
        fact   = 1.0d0
-       thr    = 0.0d0
-       fqvib  = 'GAS'
+       fwhm   = 1.0d0
+!
+       doir   = .FALSE.
+!
+       ffree  = 'MIX'
+       fentha = 'RRHO'
+       fentro = 'RRHO'
+!
+       forder = 'GORDER'
+       fcalc  = 'ALL'
+!
+       cutoff = 100.0d0
+!
        fenan  = .FALSE.
        fpermu = .FALSE.
        fsoln  = .FALSE.
+!
        nreac  = 0
 !
 ! Reading general input file
@@ -259,8 +280,9 @@
 !
              call findline(line,'blck','**PROPERTIES')
 !
-             call read_prop(line,'**PROPERTIES',thr,fact,fqvib,        &
-                            fenan,fpermu,fsoln)
+             call read_prop(line,'**PROPERTIES',cutoff,fact,fwhm,doir, &
+                            ffree,fentha,fentro,forder,fcalc,fenan,    &
+                            fpermu,fsoln) 
 !      
            case ('**REACT','**REAC','**REACTOR')
 !~              write(*,*) 
@@ -287,7 +309,15 @@
 !
 ! General settings and fatal errors check
 !
-
+       mconf = 1
+       do io = 1, nmol
+         mconf = max(mconf,mol(io)%nconf)
+       end do
+!
+       if ( trim(ffree) .ne. 'MIX' ) then
+         fentro = ffree
+         fentha = ffree
+       end if
 !
        return
        end subroutine read_inp
@@ -330,7 +360,7 @@
 !~              write(*,*) '  Reading .TITLE option'
 !~              write(*,*)
 !
-!~              read(uniinp,*) tgrp
+!~              read(uniinp,*) tgrp     ! FLAG: check errors
 !~              tgrp = adjustl(tgrp)
 !
              call findline(key,'blck',blck)
@@ -344,7 +374,7 @@
 !
              call findline(key,'sect','*MOLECULE')
 !
-             call read_mol(key,'*MOLECULE',nmol,mol,imol)
+             call read_mol(key,'*MOLECULE',blck,nmol,mol,imol)
 !
            case ('**END')
 !~              write(*,*) 'Exiting from **SYSTEM block'
@@ -360,7 +390,7 @@
 !
 !======================================================================!
 !
-       subroutine read_mol(key,sect,nmol,mol,imol)
+       subroutine read_mol(key,sect,blck,nmol,mol,imol)
 !
        use datatypes
        use utils
@@ -372,6 +402,7 @@
        type(molecule),dimension(nmol),intent(inout)  ::  mol   !  Molecules information
        character(len=lenline),intent(inout)          ::  key   !  
        character(len=*),intent(in)                   ::  sect  !  Section name
+       character(len=*),intent(in)                   ::  blck  !  Block name
        integer,intent(in)                            ::  imol  !
        integer,intent(in)                            ::  nmol  !
 !
@@ -431,7 +462,7 @@
                mol(imol)%phase = arg(:len(mol(imol)%phase))
 !
              case default
-               call unkkey(key,sect)  ! FLAG: create UNKINP subroutine
+               call unkkeysect(key,sect)  ! FLAG: create UNKINP subroutine
            end select  
 !
            key = line
@@ -442,7 +473,6 @@
        end if
 !
        allocate(mol(imol)%conf(mol(imol)%nconf))
-       allocate(mol(imol)%pop(mol(imol)%nconf))
 !
 ! Reading MOLECULE section options 
 !
@@ -483,7 +513,50 @@
              end do
 !
              call findline(key,'sect',sect)
-             if ( key(1:1) .eq. '*' ) return
+             if ( key(1:1) .eq. '*' ) GOTO 1000   ! FLAG: check exit
+!
+           case ('.READ','.READFILE','.READFILES')
+!
+!~              write(*,*) '    Reading .READ option'
+!~              write(*,*)
+!
+! Reading file name
+             read(uniinp,'(A)') line         ! FLAG: check errors
+             line = adjustl(line)
+! Reading input files names
+!~              deallocate(mol(imol)%conf)   ! FLAG:  check what happens if nconf is unknown
+!
+             call countlines(trim(line),uniaux,i)
+!
+             if ( i .ne. mol(imol)%nconf ) then 
+               write(*,*)
+               write(*,'(2X,68("="))')
+               write(*,'(3X,A)') 'ERROR:  Number of lines in the i'//  &
+                                   'nput file does not match the number'
+               write(*,'(3X,A)') '        of conformers specified'
+               write(*,*)
+               write(*,'(2X,A)') 'Input file name: '//trim(line)
+               write(*,*)
+               write(*,'(3X,A,X,I4)') 'Number of lines in the inpu'//  &
+                                                              't file',i
+               write(*,'(3X,A,X,I4)') 'Number of conformers specif'//  &
+                                                   'ied',mol(imol)%nconf
+               write(*,'(2X,68("="))')
+               call print_end()
+             end if             
+!
+             open(unit=uniaux,file=trim(line),action='read',           &
+                  status='old',iostat=i)
+!
+             do i = 1, mol(imol)%nconf        ! FLAG: check if input names are introduced correctly
+               read(uniaux,*) mol(imol)%conf(i)%inp
+               mol(imol)%conf(i)%inp = adjustl(mol(imol)%conf(i)%inp) 
+             end do
+!
+             close(uniaux)
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) GOTO 1000   ! FLAG: check exit
 !
            case ('.SYMNUM','.SYMMETRYNUM','.SYMMETRYNUMBER')
 !
@@ -493,7 +566,7 @@
              read(uniinp,*) mol(imol)%conf(:)%symnum   ! FLAG: check if bad introduced
 !
              call findline(key,'sect',sect)
-             if ( key(1:1) .eq. '*' ) return
+             if ( key(1:1) .eq. '*' ) GOTO 1000   ! FLAG: check exit
 !
            case ('.NFRAG','.NFRAGMENTS','.FRAGMENTS')
 !
@@ -522,20 +595,23 @@
              read(key,*) mol(imol)%frag(:)
 !
              call findline(key,'sect',sect)
-             if ( key(1:1) .eq. '*' ) return
+             if ( key(1:1) .eq. '*' ) GOTO 1000   ! FLAG: check exit
 !
            case default
-             call unkopt(key,sect)
+             call unkopt(key,sect,blck)
          end select  
        end do
+!
+1000   allocate(mol(imol)%pop(mol(imol)%nconf))
 !
        return
        end subroutine read_mol
 !
 !======================================================================!
 !
-       subroutine read_prop(key,blck,thr,fact,fqvib,             &
-                            fenan,fpermu,fsoln)
+       subroutine read_prop(key,blck,cutoff,fact,fwhm,doir,ffree,      &
+                            fentha,fentro,forder,fcalc,fenan,          &
+                            fpermu,fsoln)
 !
        use datatypes
        use utils
@@ -546,9 +622,15 @@
 !
        character(len=lenline),intent(inout)  ::  key     !
        character(len=*),intent(in)           ::  blck    !  Block name
-       character(len=8),intent(inout)        ::  fqvib   !  Qvib calculation flag
-       real(kind=8),intent(inout)            ::  thr     !  Threshold frequency
+       character(len=8),intent(inout)        ::  ffree   !  Free energy calculation flag
+       character(len=8),intent(inout)        ::  fentha  !  Enthalpy calculation flag
+       character(len=8),intent(inout)        ::  fentro  !  Entropy calculation flag
+       character(len=8),intent(inout)        ::  fcalc   !  Calculation information flag
+       character(len=8),intent(inout)        ::  forder  !  Conformations order flag
+       real(kind=8),intent(inout)            ::  cutoff  !  Cutoff frequency
        real(kind=8),intent(inout)            ::  fact    !  Frequencies scaling factor
+       real(kind=8),intent(inout)            ::  fwhm    !  Full width at half maximum
+       logical,intent(inout)                 ::  doir    !  IR calculation flag
        logical,intent(inout)                 ::  fenan   !  Enantiomers calculation flag
        logical,intent(inout)                 ::  fpermu  !  Permutations calculation flag
        logical,intent(inout)                 ::  fsoln   !  Standard state flag
@@ -568,32 +650,51 @@
          if ( posi .gt. 0 ) key = key(:posi-1)
 ! Reading the different block sections       
          select case (key)
-           case ('.TITLE')
+           case ('*GENERAL','*SETTINGS')
+!
+!~              write(*,*) '  Reading *GENERAL section'
+!~              write(*,*)
+!
+             call findline(key,'sect','*GENERAL')
+!
+             call read_general(key,'*GENERAL',blck,forder,fcalc)
+!
+!~            case ('.TITLE')
 !~              write(*,*) '  Reading .TITLE option'
 !~              write(*,*)
 !
 !~              read(uniinp,*) tgrp
 !~              tgrp = adjustl(tgrp)
 !
-             call findline(key,'blck',blck)
+!~              call findline(key,'blck',blck)
 !
-           case ('*QVIB')
+           case ('*FREQ','*FREQUENCIES','*IRSPECTRA','*IRSPEC')
 !
-!~              write(*,*) '  Reading *QVIB section'
+!~              write(*,*) '  Reading *FREQ section'
 !~              write(*,*)
 !
-             call findline(key,'sect','*QVIB')
+             call findline(key,'sect','*FREQ')
 !
-             call read_qvib(key,'*QVIB',thr,fact,fqvib)
+             call read_freq(key,'*FREQ',blck,fact,fwhm,doir)
 !
-           case ('*FREE')
+           case ('*SCREEN','*SCREENING')
 !
-!~              write(*,*) '  Reading *FREE section'
+!~              write(*,*) '  Reading *SCREEN section'
 !~              write(*,*)
 !
-             call findline(key,'sect','*FREE')
+!~              call findline(key,'sect','*SCREEN')
 !
-             call read_free(key,'*FREE',fenan,fpermu,fsoln)
+!~             call read_screen(key,'*SCREEN',blck)
+!
+           case ('*THERMO','*FREE','*KEQ','*EQUILIBRIUM')
+!
+!~              write(*,*) '  Reading *THERMO section'
+!~              write(*,*)
+!
+             call findline(key,'sect','*THERMO')
+!
+             call read_thermo(key,'*THERMO',blck,cutoff,ffree,fentha,  &
+                              fentro,fenan,fpermu,fsoln)
 !
            case ('**END')
 !~              write(*,*) 'Exiting from **PROPERTIES block'
@@ -609,88 +710,7 @@
 !
 !======================================================================!
 !
-       subroutine read_qvib(key,sect,thr,fact,fqvib)
-!
-       use datatypes
-       use utils
-!
-       implicit none
-!
-! Input/output variables
-!
-       character(len=lenline),intent(inout)  ::  key    !  
-       character(len=*),intent(in)           ::  sect   !  Section name
-       character(len=8),intent(inout)        ::  fqvib  !  Qvib calculation flag
-       real(kind=8),intent(inout)            ::  fact   !  Frequencies scaling factor
-       real(kind=8),intent(inout)            ::  thr    !  Threshold frequency
-!
-! Local variables
-!
-       integer                               ::  posi   !
-!
-! Reading QVIB section options 
-! ----------------------------
-!
-       do
-! Changing lowercase letters by uppercase letters 
-         key = uppercase(key)
-! Keeping just the first string
-         posi = index(key,' ')           
-         if ( posi .gt. 0 ) key = key(:posi-1)
-! Reading the different block sections       
-         select case (key)
-           case ('.SCALING','.FACTOR','.SCALINGFACTOR')
-!
-!~              write(*,*) '    Reading .SCALING option'
-!~              write(*,*)
-!
-             read(uniinp,*) fact    ! FLAG: check reading error
-!
-             call findline(key,'sect',sect)
-             if ( key(1:1) .eq. '*' ) return
-!
-           case ('.THR','.THRESH','.THRESHOLD')
-!
-!~              write(*,*) '    Reading .THR option'
-!~              write(*,*)
-!
-             read(uniinp,*) thr
-!
-             call findline(key,'sect',sect)
-             if ( key(1:1) .eq. '*' ) return
-!
-           case ('.TYPE')
-!
-!~              write(*,*) '    Reading .TYPE option'
-!~              write(*,*)
-!
-             read(uniinp,*) fqvib
-!
-             fqvib = uppercase(fqvib)
-!
-             select case ( fqvib )
-               case ('GAS','IDEAL','IDEALGAS')
-                 fqvib = 'GAS' 
-               case ('ROT','VIBROT','GRIMME2012') 
-                 fqvib = 'ROT'                   
-               case default        
-                 call errkeyoptsect(fqvib,key,sect)  
-             end select
-!
-             call findline(key,'sect',sect)
-             if ( key(1:1) .eq. '*' ) return
-!
-           case default
-             call unkopt(key,sect)
-         end select  
-       end do
-!
-       return
-       end subroutine read_qvib
-!
-!======================================================================!
-!
-       subroutine read_free(key,sect,fenan,fpermu,fsoln)
+       subroutine read_general(key,sect,blck,forder,fcalc)
 !
        use datatypes
        use utils
@@ -701,15 +721,16 @@
 !
        character(len=lenline),intent(inout)  ::  key     !  
        character(len=*),intent(in)           ::  sect    !  Section name
-       logical,intent(inout)                 ::  fenan   !  Enantiomers calculation flag
-       logical,intent(inout)                 ::  fpermu  !  Permutations calculation flag
-       logical,intent(inout)                 ::  fsoln   !  Standard state flag
+       character(len=*),intent(in)           ::  blck    !  Block name
+       character(len=8),intent(inout)        ::  forder  !  Conformations order flag
+       character(len=8),intent(inout)        ::  fcalc   !  Calculation information flag
 !
 ! Local variables
 !
+       character(len=lenline)                ::  line    !
        integer                               ::  posi    !
 !
-! Reading FREE section options 
+! Reading FREQ section options 
 ! ----------------------------
 !
        do
@@ -720,6 +741,234 @@
          if ( posi .gt. 0 ) key = key(:posi-1)
 ! Reading the different block sections       
          select case (key)
+           case ('.ORDER')
+!
+!~              write(*,*) '    Reading .ORDER option'
+!~              write(*,*)
+!
+             read(uniinp,*) forder    ! FLAG: check errors
+!
+             select case ( forder )
+               case ('EORDER','ENERGY','POTENTIAL')
+                 forder = 'EORDER' 
+               case ('DORDER','VORDER','ZPE','ZPVE')
+                 forder = 'DORDER'
+               case ('GORDER','FREE','GIBBS')
+                 forder = 'GORDER'
+               case default        
+                 call errkeyoptsectblck(trim(forder),key,sect,blck)  
+             end select
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.JOBTYPE','.TYPE','.JOB','.READ','.READONLY')
+!
+!~              write(*,*) '    Reading .JOBTYPE option'
+!~              write(*,*)
+!
+             read(uniinp,*) line    ! FLAG: check errors
+             line = adjustl(line)
+!
+             select case ( line )
+               case ('EONLY','ENERGY','SP')
+                 fcalc = 'EONLY'
+               case ('OPT','OPTIMIZATION')
+                 fcalc = 'OPT'
+               case ('FREQ','FREQUENCIES','FREQUENCY')
+                 fcalc = 'FREQ'
+               case ('ALL','OF','OPTFREQ','FULL','FREE','GIBBS')
+                 fcalc = 'ALL'
+               case default        
+                 call errkeyoptsectblck(trim(line),key,sect,blck)  
+             end select
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case default
+             call unkopt(key,sect,blck)
+         end select  
+       end do
+!
+       return
+       end subroutine read_general
+!
+!======================================================================!
+!
+       subroutine read_freq(key,sect,blck,fact,fwhm,doir)
+!
+       use datatypes
+       use utils
+!
+       implicit none
+!
+! Input/output variables
+!
+       character(len=lenline),intent(inout)  ::  key    !  
+       character(len=*),intent(in)           ::  sect   !  Section name
+       character(len=*),intent(in)           ::  blck   !  Block name
+       real(kind=8),intent(inout)            ::  fact   !  Frequencies scaling factor
+       real(kind=8),intent(inout)            ::  fwhm   !  Full width at half maximum
+       logical,intent(inout)                 ::  doir   !  IR calculation flag
+!
+! Local variables
+!
+       integer                               ::  posi   !
+!
+! Reading FREQ section options 
+! ----------------------------
+!
+       do
+! Changing lowercase letters by uppercase letters 
+         key = uppercase(key)
+! Keeping just the first string
+         posi = index(key,' ')           
+         if ( posi .gt. 0 ) key = key(:posi-1)
+! Reading the different block sections       
+         select case (key)
+           case ('.PRINT','.PRINTIR')
+!
+             doir = .TRUE.
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.NOPRINT','.NOPRINTIR')
+!
+             doir = .FALSE.
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.SCALING','.FACTOR','.SCALINGFACTOR')
+!
+!~              write(*,*) '    Reading .SCALING option'
+!~              write(*,*)
+!
+             read(uniinp,*) fact    ! FLAG: check errors
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.FWHM','.WIDTH')
+!
+!~              write(*,*) '    Reading .FWHM option'
+!~              write(*,*)
+!
+             read(uniinp,*) fwhm    ! FLAG: check errors
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.PROFILE','.TYPE')
+!
+!~              write(*,*) '    Reading .PROFILE option'
+!~              write(*,*)
+!
+!~              read(uniinp,*) fwhm    ! FLAG: check errors
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case default
+             call unkopt(key,sect,blck)
+         end select  
+       end do
+!
+       return
+       end subroutine read_freq
+!
+!======================================================================!
+!
+       subroutine read_thermo(key,sect,blck,cutoff,ffree,fentha,       &
+                              fentro,fenan,fpermu,fsoln)
+!
+       use datatypes
+       use utils
+!
+       implicit none
+!
+! Input/output variables
+!
+       character(len=lenline),intent(inout)  ::  key     !  
+       character(len=*),intent(in)           ::  sect    !  Section name
+       character(len=*),intent(in)           ::  blck    !  Block name
+       character(len=8),intent(inout)        ::  ffree   !  Free energy calculation flag
+       character(len=8),intent(inout)        ::  fentha  !  Enthalpy calculation flag
+       character(len=8),intent(inout)        ::  fentro  !  Entropy calculation flag
+       real(kind=8),intent(inout)            ::  cutoff  !  Cutoff frequency
+       logical,intent(inout)                 ::  fenan   !  Enantiomers calculation flag
+       logical,intent(inout)                 ::  fpermu  !  Permutations calculation flag
+       logical,intent(inout)                 ::  fsoln   !  Standard state flag
+!
+! Local variables
+!
+       integer                               ::  posi    !
+!
+! Reading THERMO section options 
+! ------------------------------
+!
+       do
+! Changing lowercase letters by uppercase letters 
+         key = uppercase(key)
+! Keeping just the first string
+         posi = index(key,' ')           
+         if ( posi .gt. 0 ) key = key(:posi-1)
+! Reading the different block sections       
+         select case (key)
+           case ('.TYPE','.GTYPE','.TYPEG')
+!
+!~              write(*,*) '    Reading .TYPE option'
+!~              write(*,*)
+!
+             read(uniinp,*) ffree        ! FLAG: check errors
+!
+             ffree = uppercase(ffree)
+!
+             ffree = chktype(ffree,key,sect,blck)
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.HTYPE','.TYPEH')
+!
+!~              write(*,*) '    Reading .HTYPE option'
+!~              write(*,*)
+!
+             read(uniinp,*) fentha        ! FLAG: check errors
+!
+             fentha = uppercase(fentha)
+!
+             fentha = chktype(fentha,key,sect,blck)
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.STYPE','.TYPES')
+!
+!~              write(*,*) '    Reading .STYPE option'
+!~              write(*,*)
+!
+             read(uniinp,*) fentro        ! FLAG: check errors
+!
+             fentro = uppercase(fentro)
+!
+             fentro = chktype(fentro,key,sect,blck)
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.CUTOFF','.THR','.THRESH','.THRESHOLD')
+!
+!~              write(*,*) '    Reading .CUTOFF option'
+!~              write(*,*)
+!
+             read(uniinp,*) cutoff           ! FLAG: check errors
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
            case ('.ENAN','.ENANTIOMER','.ENANTIOMERS')
 !
 !~              write(*,*) '    Reading .ENAN option'
@@ -782,12 +1031,42 @@
              if ( key(1:1) .eq. '*' ) return
 !
            case default
-             call unkopt(key,sect)
+             call unkopt(key,sect,blck)
          end select  
        end do
 !
        return
-       end subroutine read_free
+       end subroutine read_thermo
+!
+!======================================================================!
+!
+       function chktype(aux,key,sect,blck) result(str)
+!
+       use utils
+!
+       implicit none
+!
+       character(len=*),intent(in)   ::  aux     !  Keyword name
+       character(len=*),intent(in)   ::  key     !  Option name  
+       character(len=*),intent(in)   ::  sect    !  Section name
+       character(len=*),intent(in)   ::  blck    !  Block name
+       character(len=len_trim(aux))  ::  str     !  System keyword name
+! 
+       select case ( aux )
+         case ('RRHO','GAS','IDEAL','IDEALGAS')
+           str = 'RRHO' 
+         case ('QRRHO','ROT','FREEROT','VIBROT') 
+           str = 'QRRHO'          
+         case ('QHO','RRQHO','QUASIHO') 
+           str = 'QHO'  
+         case ('MIX','CALC') 
+           str = 'MIX'             
+         case default        
+           call errkeyoptsectblck(aux,key,sect,blck)  
+       end select
+!     
+       return
+       end function chktype
 !
 !======================================================================!
 !
@@ -838,7 +1117,8 @@
 !
              call findline(key,'sect','*REACTIONS')
 !
-             call read_reaction(key,'*REACTIONS',nmol,mol,nreac,reac)
+             call read_reaction(key,'*REACTIONS',blck,nmol,mol,        &
+                                nreac,reac)
 !
            case ('**END')
 !~              write(*,*) 'Exiting from **REACTOR block'
@@ -854,7 +1134,7 @@
 !
 !======================================================================!
 !
-       subroutine read_reaction(key,sect,nmol,mol,nreac,reac)
+       subroutine read_reaction(key,sect,blck,nmol,mol,nreac,reac)
 !
        use datatypes
        use utils
@@ -867,6 +1147,7 @@
        type(reaction),dimension(:),allocatable,intent(out)  ::  reac     !  Reactions information
        character(len=*),intent(inout)                       ::  key      !  
        character(len=*),intent(in)                          ::  sect     !  Section name
+       character(len=*),intent(in)                          ::  blck     !  Block name
        integer,intent(in)                                   ::  nmol     !  Number of molecules
        integer,intent(out)                                  ::  nreac    !  Number of reactions
 
@@ -951,7 +1232,7 @@
              if ( key(1:1) .eq. '*' ) return  
 !
            case default
-             call unkopt(key,sect)
+             call unkopt(key,sect,blck)
          end select  
        end do
 !

@@ -1,15 +1,13 @@
 ! General input file
 **SYSTEM
   *MOLECULE
-    NCONF=1 Name = PhOH phase =ccl4
+    NConf = 1 Name = PhOH phase =ccl4
    .SYMNUM
-      1
-   .NFRAG
       1
    .FILE
      fenol_b3lypd3_n07d_ccl4_of.log
   *MOLECULE
-    NCONF=1 Name = (PhOH)2 Phase = ccl4
+    Nconf=1 Name=(PhOH)2 Phase = ccl4
    .SYMNUM
       1
    .NFRAG
@@ -17,14 +15,16 @@
    .FILE
      dimero_b3lypd3_n07d_ccl4_of.log
   *MOLECULE
-    NCONF=2 Name=(PhOH)3 Phase=ccl4
+    nconf =2 name=(PhOH)3 phase =ccl4
    .SYMNUM
-      1 1
+      3 1
    .NFRAG
       3
    .FILE
      trimero-ddd_b3lypd3_n07d_ccl4_of.log
      trimero-ddu_b3lypd3_n07d_ccl4_of.log
+!   .READ
+!     trimero_calculations
   *MOLECULE
     Nconf=3 Name=(PhOH)4 Phase=ccl4
    .SYMNUM
@@ -38,15 +38,42 @@
 **END SYSTEM
 
 **PROP
-  *QVIB
-   .SCALING     ! Frequencies scaling factor
-     1.0d0
-   .TYPE        ! Possible keywords : QHO, ROT and GAS (default)
-     GAS
-  *FREE
-!   .SOLN        ! Possible options  : .SOLN and .GAS (default)
-   .ENAN        ! Possible options  : .ENAN and .NOENAN (default)
-   .INDIST      ! Possible options  : .INDIST and .DISTIN (default)
+  *GENERAL
+   .ORDER        ! Possible keywords : EORDER, DORDER and GORDER (default)
+    GORDER
+   .JOBTYPE      ! Possible keywords : ENERGY and ALL (default)
+    ALL 
+  *FREQ
+!   .NOPRINT
+   .SCALING      ! Frequencies scaling factor
+    1.0d0
+!   .FWHM in cm**-1
+!    10.0d0
+!   .PROFILE        ! Possible keyword : GAUSS, LORENT and VOIGHT (default)
+!    VOIGT  
+!   .WEIGTH
+!    0.5d0
+!  *SCREEN
+!   .ROTATION
+!    QUATCTK
+!   .RMSDMAX
+!    0.5d0
+!   .MAPEMAX
+!    0.01
+!   .BAPEMAX
+!    0.1
+  *THERMO
+   .TYPE         ! Possible keywords : MIX, QRRHO, QHO and RRHO (default)
+    QRRHO
+   .HTYPE        ! Possible keywords : QRRHO, QHO and RRHO (default)
+    QRRHO
+   .STYPE        ! Possible keywords : QRRHO, QHO and RRHO (default)
+    QRRHO 
+   .CUTOFF (cm**-1) ! Cutoff frequency
+    100.0d0
+!   .SOLN         ! Possible options  : .SOLN and .GAS (default)
+!   .ENAN         ! Possible options  : .ENAN and .NOENAN (default)
+!   .INDIST       ! Possible options  : .INDIST and .DISTIN (default)
 **END PROP
 
 **REACTOR
@@ -59,13 +86,13 @@
    .NREAC
      3
    .SCHEMES
-    2 PhOH = (PhOH)2
-    3 PhOH = (PhOH)3
-    4 PhOH = (PhOH)4
-!    PhOH + (PhOH)2 = (PhOH)3
-!    3 (PhOH)2 = 2 (PhOH)3
-!    PhOH + (PhOH)3 = (PhOH)4
-!    2 PhOh + (PhOH)2 = (PhOH)4
-!    2 (PhOH)2 =   (PhOH)4
-!    4 (PhOH)3 = 3 (PhOH)4
+     2 PhOH = (PhOH)2
+     3 PhOH = (PhOH)3
+     4 PhOH = (PhOH)4
+!     PhOH + (PhOH)2 = (PhOH)3
+!     3 (PhOH)2 = 2 (PhOH)3
+!     PhOH + (PhOH)3 = (PhOH)4
+!     2 PhOh + (PhOH)2 = (PhOH)4
+!     2 (PhOH)2 =   (PhOH)4
+!     4 (PhOH)3 = 3 (PhOH)4
 **END REACTOR

@@ -310,13 +310,13 @@
 ! References
 ! ----------
 !
-! - Coutsias, E. A.; Seok, C. & Dill, K. A. "Using quaternions to cal-
+! - Coutsias, E. A.; Seok, C. & Dill, K. A., "Using quaternions to cal-
 !    culate RMSD", Journal of Computational Chemistry, 2004, 25, 
 !    1849-1857. https://doi.org/10.1002/jcc.20110
 ! - Theobald, D. L. "Rapid calculation of RMSDs using a quaternion-based
 !    characteristic polynomial", Acta Crystallographica Section A, 2005, 
 !    61, 478-480. https://doi.org/10.1107/S0108767305015266
-! - Kneller, G. R. "Comment on "Using quaternions to calculate RMSD" 
+! - Kneller, G. R., "Comment on "Using quaternions to calculate RMSD" 
 !    [J. Comp. Chem. 25, 1849 (2004)]", Journal of Computational Chemis-
 !    try, 2005, 26, 1660-1662. https://doi.org/10.1002/jcc.20296
 !

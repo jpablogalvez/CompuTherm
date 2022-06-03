@@ -58,6 +58,27 @@
 !
 !======================================================================!
 !
+       subroutine print_missinp(inp)
+!
+       implicit none
+!
+       character(len=*),intent(in)  ::  inp
+!
+       write(*,*)
+       write(*,'(2X,68("="))')
+       write(*,'(3X,A)') 'ERROR:  Missing input file'
+       write(*,*)
+       write(*,'(3X,A)') 'Input file '//trim(inp)//' not found in '//  &
+                                                 'the current directory'
+       write(*,'(2X,68("="))')
+       write(*,*)
+       call print_end()
+!
+       return
+       end subroutine print_missinp
+!
+!======================================================================!
+!
        subroutine check_arg(opt,io,arg,cmd)
 !
        implicit none
@@ -274,19 +295,20 @@
 !
 !======================================================================!
 !
-       subroutine unkopt(key,sect)
+       subroutine unkopt(opt,sect,blck)
 !
        implicit none
 !
-       character(len=*),intent(in)  ::  key
+       character(len=*),intent(in)  ::  opt
        character(len=*),intent(in)  ::  sect
+       character(len=*),intent(in)  ::  blck
 !
        write(*,*)
        write(*,'(2X,68("="))')
        write(*,'(3X,A)') 'ERROR:  Unknown option in section '//        &
-                                                              trim(sect)
+                                    trim(sect)//' of block '//trim(blck)
        write(*,*) 
-       write(*,'(3X,A)') 'Option '//trim(key)//' not known'
+       write(*,'(3X,A)') 'Option '//trim(opt)//' not known'
        write(*,'(2X,68("="))')
        write(*,*) 
        call print_end()
@@ -296,17 +318,21 @@
 !
 !======================================================================!
 !
-       subroutine unkkey(key,opt)
+       subroutine unkkeysect(key,sect)
 !
        implicit none
 !
        character(len=*),intent(in)  ::  key
-       character(len=*),intent(in)  ::  opt
+       character(len=*),intent(in)  ::  sect
 !
        write(*,*)
        write(*,'(2X,68("="))')
-       write(*,'(3X,A)') 'ERROR:  Unknown keyword in option '//        &
-                                                               trim(opt)
+!~        write(*,'(3X,A)') 'ERROR:  Unknown keyword'//                   &
+!~                                      ' in option 'trim(opt)//          &
+!~                                      ' of section '//trim(sect)//      &
+!~                                      ' of block '//trim(blck)
+       write(*,'(3X,A)') 'ERROR:  Unknown keyword in section '//       &
+                                                              trim(sect)
        write(*,*) 
        write(*,'(3X,A)') 'Keyword '//trim(key)//' not known'
        write(*,'(2X,68("="))')
@@ -314,7 +340,7 @@
        call print_end()
 !
        return
-       end subroutine unkkey
+       end subroutine unkkeysect
 !
 !======================================================================!
 !
@@ -340,27 +366,28 @@
 !
 !======================================================================!
 !
-       subroutine errkeyoptsect(key,opt,sect)
+       subroutine errkeyoptsectblck(key,opt,sect,blck)
 !
        implicit none
 !
        character(len=*),intent(in)  ::  key
        character(len=*),intent(in)  ::  opt
        character(len=*),intent(in)  ::  sect
+       character(len=*),intent(in)  ::  blck
 !
        write(*,*)
        write(*,'(2X,68("="))')
        write(*,'(3X,A)') 'ERROR:  Unknown keyword from input file'
        write(*,*) 
        write(*,'(3X,A)') 'Keyword '//trim(key)//' for option '//       &
-                                                               trim(opt)
-       write(*,'(4X,A)') 'of section '//trim(sect)//' not known'
+                          trim(opt)//'of section '//trim(sect)//       &
+                                    'in block'//trim(blck)//' not known'
        write(*,'(2X,68("="))')
        write(*,*) 
        call print_end()  
 !
        return
-       end subroutine errkeyoptsect
+       end subroutine errkeyoptsectblck
 !
 !======================================================================!
 !
@@ -743,6 +770,55 @@
 !
        return
        end subroutine znum2atname
+!
+!======================================================================!
+!
+       subroutine znum2atmass(znum,atmass)
+!
+       implicit none
+!
+! Input/output variables
+!
+       integer,intent(in)        ::  znum    !  Atomic number
+       real(kind=8),intent(out)  ::  atmass  !  Atom mass
+! 
+!
+!
+       select case ( znum )
+         case ( 1 )
+           atmass = 1.00783   ! Gaussian value
+!~          case ( 2 )
+!~            atmass = 'He'
+!~          case ( 3 )
+!~            atmass = 'Li'
+!~          case ( 4 )
+!~            atmass = 'Be'
+!~          case ( 5 )
+!~            atmass = 'B'
+         case ( 6 )
+           atmass = 12.0d0    ! Gaussian value
+!~          case ( 7 )
+!~            atmass = 'N'
+         case ( 8 )
+           atmass = 15.99491  ! Gaussian value
+!~          case ( 9 )
+!~            atmass = 'F'
+!~          case ( 10 )
+!~            atmass = 'Ne'
+!~          case ( 17 )
+!~            atmass = 'Cl'
+!~          case ( 18 )
+!~            atmass = 'Ar'
+!~          case ( 36 )
+!~            atmass = 'Kr'
+         case default
+           write(*,*) znum, 'Not yet!'
+           write(*,*) 
+           call print_end()
+       end select
+!
+       return
+       end subroutine znum2atmass
 !
 !======================================================================!
 !
@@ -1162,6 +1238,42 @@
 !
        return
        end subroutine print_titleint
+!
+!======================================================================!
+!
+       subroutine countlines(inp,uni,n)
+!
+       implicit none
+!
+! Input/output variables
+!
+       character(len=*),intent(in)  ::  inp
+       integer,intent(in)           ::  uni
+       integer,intent(out)          ::  n
+!
+! Local variables
+!
+       integer                      ::  io
+!
+! Counting the number of lines up to the end of the file
+!
+       open(unit=uni,file=inp,action='read',status='old',iostat=io)
+!
+       if ( io .ne. 0 ) then
+         call print_missinp(inp)
+       end if
+!
+       n = 0
+       do
+         read(uni,*,iostat=io)
+         if ( io .ne. 0 ) exit
+         n = n + 1
+       end do
+!
+       close(uni)
+!
+       return
+       end subroutine countlines
 !
 !======================================================================!
 !

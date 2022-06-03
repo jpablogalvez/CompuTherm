@@ -4,21 +4,20 @@
 !
        use parameters
        use datatypes
-       use utils,      only: leninp,lenout,                            &
-                             line_str,                                 &
-                             line_int,                                 &
-                             line_dp,                                  &
-                             line_dvec,                                &
-                             line_ivec,                                &
-                             line_log,                                 &
-                             print_title,                              &
-                             print_titleint,                           &
-                             print_start,                              &
-                             print_end
+       use utils,      only:  leninp,lenout,                           &
+                              line_str,                                &
+                              line_int,                                &
+                              line_dp,                                 &
+                              line_dvec,                               &
+                              line_ivec,                               &
+                              line_log,                                &
+                              print_title,                             &
+                              print_titleint,                          &
+                              print_start,                             &
+                              print_end
        use input
-       use g16files
        use statmech
-       use mathtools
+       use mathtools,  only:  factorial 
 !
        implicit none
 !
@@ -28,13 +27,17 @@
        type(reaction),dimension(:),allocatable  ::  reac    !  Reactions information
        character(len=leninp)                    ::  inp     !  Input file name
        character(len=lenout)                    ::  outp    !  Output file name
-       character(len=8)                         ::  fqvib   !  Qvib calculation flag
-       character(len=64)                        ::  fmt1    !  Format variable
+       character(len=8)                         ::  ffree   !  Free energy calculation flag
+       character(len=8)                         ::  fentha  !  Enthalpy calculation flag
+       character(len=8)                         ::  fentro  !  Entropy calculation flag
+       character(len=8)                         ::  fcalc   !  Calculation information flag
+       character(len=8)                         ::  forder  !  Conformations order flag
        real(kind=8)                             ::  temp    !  Temperature (K)
        real(kind=8)                             ::  pres    !  Pressure (atm)
        real(kind=8)                             ::  volu    !  Volume (m**3)
-       real(kind=8)                             ::  thr     !  Threshold frequency
+       real(kind=8)                             ::  cutoff  !  Cutoff frequency
        real(kind=8)                             ::  fact    !  Frequencies scaling factor
+       real(kind=8)                             ::  fwhm    !  Full width at half maximum
        integer,dimension(:,:),allocatable       ::  order   !  Energy-based order
        integer                                  ::  nmol    !  Number of chemical species
        integer                                  ::  imol    !  Molecule index
@@ -44,6 +47,7 @@
        integer                                  ::  nreac   !  Number of reactions
        integer                                  ::  lfin    !  
        integer                                  ::  lin     ! 
+       logical                                  ::  doir    !  IR calculation flag
        logical                                  ::  fsoln   !  Standard state flag
        logical                                  ::  fenan   !  Enantiomers calculation flag
        logical                                  ::  fpermu  !  Permutations calculation flag
@@ -53,19 +57,18 @@
 !
 ! Declaration of external functions
 !
-       logical                                  ::  chkenan ! 
-
+       logical                                  ::  chkenan !
 !
 ! Printing header
 !
        write(*,*)
        write(*,'(5X,82("#"))')
-       write(*,'(5X,10("#"),3X,A,3X,13("#"))') 'CompuTherm - Comput'//  &
-                                    'ational Thermochemistry Calculator'
+       write(*,'(5X,10("#"),3X,A,3X,13("#"))') 'CompuTherm - Compu'//  &
+                                   'tational Thermochemistry Calculator'
        write(*,'(5X,82("#"))')   
        write(*,*)
-       write(*,'(9X,A)') 'Welcome to CompuTherm, a very simple pr'//  &
-                                          'ogram for the calculation of'
+       write(*,'(9X,A)') 'Welcome to CompuTherm, a very simple pro'//  &
+                                           'gram for the calculation of'
        write(*,'(9X,A)') ' thermodynamic properties from electroni'//  &
                                               'c structure calculations'
        write(*,*)
@@ -81,8 +84,8 @@
 !
        tcpu  = 0.0d0
 !
-       lin  = 35
-       lfin = 80
+       lin  = 45
+       lfin = 90
 !
        doconf = .FALSE.
        doequi = .FALSE.
@@ -99,13 +102,9 @@
        write(*,'(8X,54("*"))')
        write(*,*)
 !
-       call read_inp(inp,nmol,mol,thr,fact,fqvib,fenan,                &
-                     fpermu,fsoln,nreac,reac)
-!
-       mconf = 1
-       do imol = 1, nmol
-         mconf = max(mconf,mol(imol)%nconf)
-       end do
+       call read_inp(inp,nmol,mol,cutoff,fact,fwhm,doir,ffree,fentha,  &
+                     fentro,forder,fcalc,fenan,fpermu,fsoln,           &
+                     nreac,reac,mconf)
 !
        allocate(order(nmol,mconf))
        order(:,:) = -1
@@ -129,27 +128,47 @@
 !
        call print_title(6,1,'Calculation type information','=')
        write(*,*)
-       write(*,'(2X,A)') 'Vibrational partition function'
-       call line_str(6,3,'Type of partition function',lin,':',         &
-                     trim(fqvib),lfin)
-       call line_dp(6,3,'Frequencies scaling factor',lin,':',          &
-                    'F6.4',fact,lfin)
+!
+       call line_str(6,2,'Type of calculation requested',lin,':',      &
+                     trim(fcalc),lfin)
        write(*,*)
-       write(*,'(2X,A)') 'Gibbs free energy'
-       call line_log(6,3,'Enantiomers calculaton',lin,':',fenan,lfin)
-       call line_log(6,3,'Indistinguishable aggregates',lin, &
+!
+       if ( (trim(fcalc).eq.'ALL') .or. (trim(fcalc).eq.'FREQ') ) then
+         write(*,'(2X,A)') 'Vibrational frequencies (IR spectra)'
+         call line_dp(6,3,'Frequencies scaling factor',lin,':',        &
+                      'F6.4',fact,lfin)
+         if ( trim(fcalc) .eq. 'FREQ' ) then
+           call line_dp(6,3,'Full width at half maximum (cm**-1)',lin,   &
+                        ':','F12.4',fwhm,lfin)
+         end if
+         write(*,*)
+       end if
+!
+       if ( trim(fcalc) .eq. 'ALL' ) then
+         write(*,'(2X,A)') 'Thermodynamic equilibrium properties'
+         call line_str(6,3,'Type of free energy calculation',lin,':',  &
+                     trim(ffree),lfin)
+         call line_str(6,3,'Type of enthalpy calculation',lin,':',     &
+                     trim(fentha),lfin)
+         call line_str(6,3,'Type of entropy calculation',lin,':',      &
+                     trim(fentro),lfin)
+         call line_log(6,3,'Enantiomers calculaton',lin,':',fenan,lfin)
+         call line_log(6,3,'Indistinguishable aggregates',lin, &
                      ':',fpermu,lfin)
-       call line_log(6,3,'Standard state 1M',lin,':',fsoln,lfin)
-       write(*,*)
-       write(*,'(2X,A)') 'Standard state'
-       call line_dp(6,3,'Temperature (K)',lin,':','F12.2',temp,lfin)
-       call line_dp(6,3,'Pressure (atm)',lin,':','F12.4',pres,lfin)
-       call line_dp(6,3,'Volume (L)',lin,':','F12.4',volu*1000.0d0,lfin)
-       write(*,*) 
+         call line_log(6,3,'Standard state 1M',lin,':',fsoln,lfin)
+         write(*,*)
+!
+         write(*,'(2X,A)') 'Standard state'
+         call line_dp(6,3,'Temperature (K)',lin,':','F12.2',temp,lfin)
+         call line_dp(6,3,'Pressure (atm)',lin,':','F12.4',pres,lfin)
+         call line_dp(6,3,'Volume (L)',lin,':','F12.4',volu*1000.0d0,  &
+                      lfin)
+         write(*,*) 
+       end if
 !
 ! Processing Gaussian16 input files
 !
-       call read_g16(nmol,mol)
+       call read_g16(fcalc,nmol,mol)
 !
 ! Printing summary of the Gaussian16 information
 !
@@ -171,8 +190,8 @@
          write(*,*)
          call line_str(6,2,'Molecule name',lin,':',                    &
                        trim(mol(imol)%molname),lfin)
-         call line_dp(6,2,'Molecular mass (g/mol)',lin,':','F12.5',    &
-                      mol(imol)%mass,lfin)
+         call line_dp(6,2,'Molecular mass (g/mol)',lin,':',            &
+                      'F12.5',mol(imol)%mass,lfin)
          call line_int(6,2,'Number of atoms',lin,':','I3',             &
                        mol(imol)%nat,lfin)
          call line_str(6,2,'Component phase',lin,':',                  &
@@ -187,28 +206,33 @@
 !
          do iconf = 1, mol(imol)%nconf
 !
-           mol(imol)%conf(iconf)%freq   = mol(imol)%conf(iconf)%freq   &
+           if ( (trim(fcalc).eq.'ALL') .or.                            &
+                                          (trim(fcalc).eq.'FREQ') ) then
+             mol(imol)%conf(iconf)%freq = mol(imol)%conf(iconf)%freq   &
                                                                    *fact
+           end if
 !
-           mol(imol)%conf(iconf)%qtrans = qtrans(temp,volu,mol(imol)%  &
-                                                 mass)
-           mol(imol)%conf(iconf)%qrot   = qrot(temp,mol(imol)%         &
-                                               conf(iconf)%moment)/    &
-                                               mol(imol)%conf(iconf)%  &
-                                               symnum
-           mol(imol)%conf(iconf)%qvib   = qvib(temp,mol(imol)%         &
-                                               conf(iconf)%dof,        &
-                                               mol(imol)%conf(iconf)%  &
-                                               freq)
+           if ( trim(fcalc) .eq. 'ALL' ) then
+             mol(imol)%conf(iconf)%qtrans = qtrans(temp,volu,          &
+                                                   mol(imol)%mass)
+             mol(imol)%conf(iconf)%qrot   = qrot(temp,mol(imol)%       &
+                                                 conf(iconf)%moment)/  &
+                                                 mol(imol)%conf(iconf)%&
+                                                 symnum
+             mol(imol)%conf(iconf)%qvib   = qvib(temp,mol(imol)%       &
+                                                 conf(iconf)%dof,      &
+                                                 mol(imol)%conf(iconf)%&
+                                                 freq)
+           end if
 !
            if ( fpermu ) then
              mol(imol)%conf(iconf)%nequi = mol(imol)%npermu
            end if
 !
-           if ( fenan ) then
-             if ( chkenan(mol(imol)%nat,mol(imol)%conf(iconf)%coord) ) &
+           if ( chkenan(mol(imol)%nat,mol(imol)%conf(iconf)%coord) ) &
                                                                     then
-               mol(imol)%conf(iconf)%chiral = .TRUE.             
+             mol(imol)%conf(iconf)%chiral = .TRUE.             
+             if ( fenan ) then
                mol(imol)%conf(iconf)%nequi  = 2*mol(imol)%conf(iconf)% &
                                                                    nequi
              end if
@@ -219,7 +243,6 @@
            write(*,*)
            call line_str(6,2,'Input file name',lin,':',                &
                          trim(mol(imol)%conf(iconf)%inp),lfin)
-
            call line_dvec(6,2,'Principal moments (au)',lin,':',3,1,    &
                           'F11.5',mol(imol)%conf(iconf)%moment(:),lfin)
            call line_int(6,2,'Symmetry number',lin,':','I3',           &
@@ -230,14 +253,18 @@
                          mol(imol)%conf(iconf)%nequi,lfin)
            call line_dp(6,2,'SCF energy (au)',lin,':','F16.9',         &
                         mol(imol)%conf(iconf)%Escf,lfin)
-           call line_dp(6,2,'Translational partition function',lin,    &
-                        ':','D16.10',mol(imol)%conf(iconf)%qtrans,lfin)
-           call line_dp(6,2,'Rotational partition function',lin,       &
-                        ':','D16.10',mol(imol)%conf(iconf)%qrot,lfin)
-           call line_dp(6,2,'Vibrational partition function',lin,      &
-                        ':','D16.10',mol(imol)%conf(iconf)%qvib,lfin)
-           call line_dp(6,2,'Electronic partition function',lin,       &
-                        ':','F16.4',mol(imol)%conf(iconf)%qel,lfin)
+!
+           if ( trim(fcalc) .eq. 'ALL' ) then
+             call line_dp(6,2,'Translational partition function',lin,    &
+                          ':','D16.10',mol(imol)%conf(iconf)%qtrans,lfin)
+             call line_dp(6,2,'Rotational partition function',lin,       &
+                          ':','D16.10',mol(imol)%conf(iconf)%qrot,lfin)
+             call line_dp(6,2,'Vibrational partition function',lin,      &
+                          ':','D16.10',mol(imol)%conf(iconf)%qvib,lfin)
+             call line_dp(6,2,'Electronic partition function',lin,       &
+                          ':','F16.4',mol(imol)%conf(iconf)%qel,lfin)
+           end if
+!
            write(*,*)
 !
          end do 
@@ -246,224 +273,55 @@
 !
 ! Computing selected thermodynamic properties for each molecule
 !
-       write(*,'(4X,65("*"))')
-       write(*,'(4X,10("*"),X,("Individual thermodynamic propertie'//  &
-                                               's section"),X,10("*"))')
-       write(*,'(4X,65("*"))')
-       write(*,*)
-!
-       do imol = 1, nmol
-         call print_titleint(6,1,'Starting molecular system',1,        &
-                             'I3',imol,'=')
+       if ( trim(fcalc) .eq. 'ALL' ) then
+         write(*,'(4X,65("*"))')
+         write(*,'(4X,10("*"),X,("Individual thermodynamic propert'//  &
+                                             'ies section"),X,10("*"))')
+         write(*,'(4X,65("*"))')
          write(*,*)
 !
-         do iconf = 1, mol(imol)%nconf
-           call print_titleint(6,3,'Thermodynamic properties of co'//  &
-                               'nformer',1,'I3',iconf,'-')            
-           write(*,*)
-!
-           mol(imol)%conf(iconf)%Escf   = mol(imol)%conf(iconf)%Escf   &
-                                                             *au2kJ*1000
-!
-           mol(imol)%conf(iconf)%ZPVE   = ZPVE(mol(imol)%conf(iconf)%  &
-                                               dof,mol(imol)%          &
-                                               conf(iconf)%freq)
-           mol(imol)%conf(iconf)%D0     = mol(imol)%conf(iconf)%ZPVE   &
-                                        + mol(imol)%conf(iconf)%Escf
-!
-           mol(imol)%conf(iconf)%Htrans = Htrans(temp)
-           mol(imol)%conf(iconf)%Hrot   = Hrot(temp,mol(imol)%         &
-                                                conf(iconf)%rotdof)
-           mol(imol)%conf(iconf)%Hvib   = mol(imol)%conf(iconf)%ZPVE   &
-                                        + Hvib(temp,mol(imol)%         &
-                                               conf(iconf)%dof,        &
-                                               mol(imol)%conf(iconf)%  &
-                                               freq)
-!
-           mol(imol)%conf(iconf)%Htherm = mol(imol)%conf(iconf)%Htrans &
-                                        + mol(imol)%conf(iconf)%Hrot   &
-                                        + mol(imol)%conf(iconf)%Hvib
-!
-           mol(imol)%conf(iconf)%Etrans = Etrans(temp)
-           mol(imol)%conf(iconf)%Erot   = mol(imol)%conf(iconf)%Hrot
-           mol(imol)%conf(iconf)%Evib   = mol(imol)%conf(iconf)%Hvib
-!
-           mol(imol)%conf(iconf)%Etherm = mol(imol)%conf(iconf)%Etrans &
-                                        + mol(imol)%conf(iconf)%Erot   &
-                                        + mol(imol)%conf(iconf)%Evib      
-!
-           mol(imol)%conf(iconf)%Strans = Strans(mol(imol)%            &
-                                                 conf(iconf)%qtrans)
-           mol(imol)%conf(iconf)%Srot   = Srot(temp,mol(imol)%         &
-                                               conf(iconf)%qrot,       &
-                                               mol(imol)%conf(iconf)%  &
-                                               Hrot)
-           mol(imol)%conf(iconf)%Svib   = Svib(temp,mol(imol)%         &
-                                               conf(iconf)%dof,        &
-                                               mol(imol)%conf(iconf)%  &
-                                               freq)
-          mol(imol)%conf(iconf)%Sel     = Sel(mol(imol)%conf(iconf)%qel)
-!
-           mol(imol)%conf(iconf)%Stherm = mol(imol)%conf(iconf)%Strans &
-                                        + mol(imol)%conf(iconf)%Srot   &
-                                        + mol(imol)%conf(iconf)%Svib   &
-                                        + mol(imol)%conf(iconf)%Sel
-!
-           mol(imol)%conf(iconf)%Gtrans = Gfree(temp,mol(imol)%        &
-                                                conf(iconf)%qtrans)
-           mol(imol)%conf(iconf)%Grot   = Gfree(temp,mol(imol)%        &
-                                                conf(iconf)%qrot)
-           mol(imol)%conf(iconf)%Gvib   = mol(imol)%conf(iconf)%ZPVE   &
-                                + Gfree(temp,mol(imol)%conf(iconf)%qvib)
-!
-           mol(imol)%conf(iconf)%Gtherm = mol(imol)%conf(iconf)%Gtrans &
-                                        + mol(imol)%conf(iconf)%Grot   &
-                                        + mol(imol)%conf(iconf)%Gvib
-!
-           fmt1 = '(1X,A,3(1X,F12.4),2(1X,F16.4))'
-!
-           write(*,'(5X,A)') '- SI units (kJ/mol and J/K*mol)'
-           write(*,*)
-           write(*,'(8X,A,3(2X,A),2(6X,A))')                           &
-                   'Translation','   Rotation','  Vibration',          &
-                   ' Electronic','    Total  '
-           write(*,fmt1) 'De ',                                        &
-                          zero,zero,zero,                              &
-                          mol(imol)%conf(iconf)%Escf/1000,             &
-                          mol(imol)%conf(iconf)%Escf/1000
-           write(*,fmt1) 'ZPE',                                        &
-                          zero,zero,mol(imol)%conf(iconf)%ZPVE/1000,   &
-                          zero,mol(imol)%conf(iconf)%ZPVE/1000
-           write(*,fmt1) 'D0 ',                                        &
-                          zero,zero,mol(imol)%conf(iconf)%ZPVE/1000,   &
-                          mol(imol)%conf(iconf)%Escf/1000,             &                          
-                          mol(imol)%conf(iconf)%D0/1000
-           write(*,fmt1) 'E  ',                                        &
-                          mol(imol)%conf(iconf)%Etrans/1000,           &
-                          mol(imol)%conf(iconf)%Erot/1000,             &
-                          mol(imol)%conf(iconf)%Evib/1000,             &
-                          mol(imol)%conf(iconf)%Escf/1000,             &
-                          mol(imol)%conf(iconf)%Etherm/1000            &
-                          + mol(imol)%conf(iconf)%Escf/1000
-           write(*,fmt1) 'H  ',                                        &
-                          mol(imol)%conf(iconf)%Htrans/1000,           &
-                          mol(imol)%conf(iconf)%Hrot/1000,             &
-                          mol(imol)%conf(iconf)%Hvib/1000,             &
-                          mol(imol)%conf(iconf)%Escf/1000,             &
-                          mol(imol)%conf(iconf)%Htherm/1000            &
-                          + mol(imol)%conf(iconf)%Escf/1000
-           write(*,fmt1) 'S  ',                                        &
-                          mol(imol)%conf(iconf)%Strans,                &
-                          mol(imol)%conf(iconf)%Srot,                  &
-                          mol(imol)%conf(iconf)%Svib,                  &
-                          mol(imol)%conf(iconf)%Sel,                   &
-                          mol(imol)%conf(iconf)%Stherm
-           write(*,fmt1) 'G  ',                                        &
-                          mol(imol)%conf(iconf)%Gtrans/1000,           &
-                          mol(imol)%conf(iconf)%Grot/1000,             &
-                          mol(imol)%conf(iconf)%Gvib/1000,             &
-                          mol(imol)%conf(iconf)%Escf/1000,             &
-                          mol(imol)%conf(iconf)%Gtherm/1000            &
-                          + mol(imol)%conf(iconf)%Escf/1000
-           write(*,*)
-!
-           fmt1 = '(1X,A,2X,3(1X,F12.8),4X,F12.8,4X,F16.8,1X,F16.8)'
-!
-           write(*,'(5X,A)') '- Atomic units (Hartree/particle and'//  &
-                                                  ' Hartree/K*particle)'
-           write(*,*)
-           write(*,'(8X,A,2(2X,A),3X,A,2X,A,5X,A)')                    &
-                        'Translation','   Rotation','  Vibration',     &
-                        'Thermal correction',' Electronic','      Total'
-           write(*,fmt1) 'De ',                                        &
-                          zero,zero,zero,zero,                         &
-                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Escf/au2kj/1000
-           write(*,fmt1) 'ZPE',                                        &
-                          zero,zero,                                   &
-                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
-                          zero,                                        &
-                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000
-           write(*,fmt1) 'D0 ',                                        &
-                          zero,zero,                                   &
-                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &                          
-                          mol(imol)%conf(iconf)%D0/au2kj/1000
-           write(*,fmt1) 'E  ',                                        &
-                          mol(imol)%conf(iconf)%Etrans/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Erot/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Evib/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Etherm/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Etherm/au2kj/1000      &
-                          + mol(imol)%conf(iconf)%Escf/au2kj/1000
-           write(*,fmt1) 'H  ',                                        &
-                          mol(imol)%conf(iconf)%Htrans/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Hrot/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Hvib/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Htherm/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Htherm/au2kj/1000      &
-                          + mol(imol)%conf(iconf)%Escf/au2kj/1000
-           write(*,fmt1) 'S  ',                                        &
-                          mol(imol)%conf(iconf)%Strans/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Srot/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Svib/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Stherm/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Sel/au2kj/1000,        &
-                          mol(imol)%conf(iconf)%Stherm/au2kj/1000
-           write(*,fmt1) 'G  ',                                        &
-                          mol(imol)%conf(iconf)%Gtrans/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Grot/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Gvib/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Gtherm/au2kj/1000,     &
-                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
-                          mol(imol)%conf(iconf)%Gtherm/au2kj/1000      &
-                          + mol(imol)%conf(iconf)%Escf/au2kj/1000         
-           write(*,*)
-!
-           mol(imol)%conf(iconf)%Etherm = mol(imol)%conf(iconf)%Escf   &
-                                        + mol(imol)%conf(iconf)%Etherm 
-! 
-           mol(imol)%conf(iconf)%Htherm = mol(imol)%conf(iconf)%Escf   &
-                                        + mol(imol)%conf(iconf)%Htherm 
-!
-           mol(imol)%conf(iconf)%Gtherm = mol(imol)%conf(iconf)%Escf   &
-                                        + mol(imol)%conf(iconf)%Gtherm
-!
-         end do
-       end do
+         call print_thermo(temp,nmol,mol,ffree,fentha,fentro,cutoff)
+       else if ( trim(fcalc) .ne. 'FREQ' ) then
+         do imol = 1, nmol
+           do iconf = 1, mol(imol)%nconf
+             mol(imol)%conf(iconf)%Escf = mol(imol)%conf(iconf)%Escf   &
+                                                             *au2kJ*1000    
+           end do
+         end do       
+       end if
 !
 ! Computing equilibrium properties 
 !
-       do imol = 1, nmol
-         if ( mol(imol)%nconf .gt. 1 ) then
-           doconf = .TRUE.
-           exit
+       if ( trim(fcalc) .ne. 'FREQ' ) then
+         do imol = 1, nmol
+           if ( mol(imol)%nconf .gt. 1 ) then
+             doconf = .TRUE.
+             exit
+           end if
+         end do
+!
+         if ( nreac .gt. 0 ) doequi = .TRUE.
+!
+         if ( doequi .or. doconf ) then
+           write(*,'(4X,66("*"))')
+           write(*,'(4X,10("*"),X,("Equilibrium thermodynamic prop'//  &
+                                          'erties section"),X,10("*"))')
+           write(*,'(4X,66("*"))')
+           write(*,*)
          end if
-       end do
 !
-       if ( nreac .gt. 0 ) doequi = .TRUE.
-!
-       if ( doequi .or. doconf ) then
-         write(*,'(4X,66("*"))')
-         write(*,'(4X,10("*"),X,("Equilibrium thermodynamic proper'//  &
-                                            'ties section"),X,10("*"))')
-         write(*,'(4X,66("*"))')
-         write(*,*)
+         if ( doconf ) call conformations(temp,nmol,mol,mconf,order,   &
+                                          forder,fcalc)
+! 
+         if ( doequi ) call keq(temp,nmol,mol,mconf,order,             &
+                                nreac,reac,fcalc)  
        end if
-!
-       if ( doconf ) call conformations(temp,nmol,mol,mconf,order)
-!
-       if ( doequi ) call keq(temp,volu,nmol,mol,mconf,order,          &
-                              nreac,reac,fsoln)
 !
 ! Deallocating memory
 !
        deallocate(mol)
        deallocate(order)
+!
        if ( nreac .ne. 0) deallocate(reac)
 !
 ! Printing timings
@@ -651,7 +509,266 @@
 !
 !======================================================================!
 !
-       subroutine conformations(temp,nmol,mol,mconf,order)
+       subroutine print_thermo(temp,nmol,mol,ffree,fentha,fentro,cutoff)
+!
+       use utils,      only:  print_titleint
+       use parameters
+       use datatypes
+       use statmech
+!
+       implicit none
+!
+! Input/output variables
+!
+       type(molecule),dimension(nmol),intent(inout)  ::  mol     !  Molecules information
+       real(kind=8),intent(in)                       ::  temp    !  Temperature
+       real(kind=8)                                  ::  cutoff  !  Cutoff frequency
+       character(len=8),intent(in)                   ::  ffree   !  Free energy calculation flag
+       character(len=8),intent(in)                   ::  fentha  !  Enthalpy calculation flag
+       character(len=8),intent(in)                   ::  fentro  !  Entropy calculation flag
+       integer,intent(in)                            ::  nmol    !  Number of chemical species
+!
+! Local variables
+!
+       character(len=64)                             ::  fmt1    !  Format variable
+       integer                                       ::  imol    !  Molecule index
+       integer                                       ::  iconf   !  Conformer index
+! 
+! Computing equilibrium thermodynamic properties 
+!
+       do imol = 1, nmol
+         call print_titleint(6,1,'Starting molecular system',1,        &
+                             'I3',imol,'=')
+         write(*,*)
+!
+         do iconf = 1, mol(imol)%nconf
+           call print_titleint(6,3,'Thermodynamic properties of co'//  &
+                               'nformer',1,'I3',iconf,'-')            
+           write(*,*)
+!
+           mol(imol)%conf(iconf)%Escf   = mol(imol)%conf(iconf)%Escf   &
+                                                             *au2kJ*1000
+!
+           mol(imol)%conf(iconf)%ZPVE   = ZPVE(mol(imol)%conf(iconf)%  &
+                                               dof,mol(imol)%          &
+                                               conf(iconf)%freq)
+           mol(imol)%conf(iconf)%D0     = mol(imol)%conf(iconf)%ZPVE   &
+                                        + mol(imol)%conf(iconf)%Escf
+! Computing translational and rotational contributions to enthalpy
+           mol(imol)%conf(iconf)%Htrans = Htrans(temp)
+           mol(imol)%conf(iconf)%Hrot   = Hrot(temp,mol(imol)%         &
+                                                conf(iconf)%rotdof)
+! Computing translational and rotational contributions to energy
+           mol(imol)%conf(iconf)%Etrans = Etrans(temp)
+           mol(imol)%conf(iconf)%Erot   = mol(imol)%conf(iconf)%Hrot     
+! Computing translational and rotational contributions to entropy
+           mol(imol)%conf(iconf)%Strans = Strans(mol(imol)%            &
+                                                 conf(iconf)%qtrans)
+           mol(imol)%conf(iconf)%Srot   = Srot(mol(imol)%conf(iconf)%  &
+                                               qrot,                   &
+                                               mol(imol)%conf(iconf)%  &
+                                               rotdof)
+          mol(imol)%conf(iconf)%Sel     = Sel(mol(imol)%conf(iconf)%qel)
+! Computing translational and rotational contributions to free energy
+           mol(imol)%conf(iconf)%Gtrans = Gfree(temp,mol(imol)%        &
+                                                conf(iconf)%qtrans)
+           mol(imol)%conf(iconf)%Grot   = Gfree(temp,mol(imol)%        &
+                                                conf(iconf)%qrot)
+! Computing vibrational contribution to entropy
+           select case ( fentha )
+             case ('RRHO')
+               mol(imol)%conf(iconf)%Hvib =                            &
+                                 Hvib(temp,mol(imol)%conf(iconf)%dof,  &
+                                      mol(imol)%conf(iconf)%freq)
+             case ('QHO') 
+               mol(imol)%conf(iconf)%Hvib =                            &
+                                 Hqho(temp,mol(imol)%conf(iconf)%dof,  &
+                                      mol(imol)%conf(iconf)%freq,cutoff)
+             case ('QRRHO') 
+               mol(imol)%conf(iconf)%Hvib =                            &
+                               Hqrrho(temp,mol(imol)%conf(iconf)%dof,  &
+                                      mol(imol)%conf(iconf)%freq,cutoff)
+               mol(imol)%conf(iconf)%ZPVE =                            &
+                             ZPVEdamp(mol(imol)%conf(iconf)%dof,       &
+                                      mol(imol)%conf(iconf)%freq,cutoff)
+           end select
+! Computing vibrational contribution to entalphy
+           select case ( fentro )
+             case ('RRHO')
+               mol(imol)%conf(iconf)%Svib =                            &
+                                 Svib(temp,mol(imol)%conf(iconf)%dof,  &
+                                      mol(imol)%conf(iconf)%freq)
+             case ('QHO') 
+               mol(imol)%conf(iconf)%Svib =                            &
+                                 Sqho(temp,mol(imol)%conf(iconf)%dof,  &
+                                      mol(imol)%conf(iconf)%freq,cutoff)
+             case ('QRRHO')
+               mol(imol)%conf(iconf)%Svib =                            &
+                            Sqrrho(temp,mol(imol)%conf(iconf)%dof,     &
+                                   mol(imol)%conf(iconf)%freq,cutoff,  &
+                                   mol(imol)%conf(iconf)%moment)
+           end select
+! Computing vibrational contribution to free energy
+           select case ( ffree )
+             case ('RRHO')
+               mol(imol)%conf(iconf)%Gvib =                            &
+                                  Gfree(temp,mol(imol)%conf(iconf)%qvib)
+             case ('QHO') 
+               mol(imol)%conf(iconf)%Gvib =                            &
+                      Gfree(temp,qqho(temp,mol(imol)%conf(iconf)%dof,  &
+                            mol(imol)%conf(iconf)%freq,cutoff))
+             case ('QRRHO')
+               mol(imol)%conf(iconf)%Gvib =                            &
+                    Gfree(temp,qqrrho(temp,mol(imol)%conf(iconf)%dof,  &
+                          mol(imol)%conf(iconf)%freq,cutoff,           &
+                          mol(imol)%conf(iconf)%moment))
+             case ('MIX')
+               mol(imol)%conf(iconf)%Gvib = mol(imol)%conf(iconf)%Hvib &
+                                       - temp*mol(imol)%conf(iconf)%Svib
+           end select
+! Correcting with the zero-point vibrational energy
+           mol(imol)%conf(iconf)%Hvib = mol(imol)%conf(iconf)%ZPVE     &
+                                            + mol(imol)%conf(iconf)%Hvib 
+           mol(imol)%conf(iconf)%Evib = mol(imol)%conf(iconf)%Hvib   
+           mol(imol)%conf(iconf)%Gvib = mol(imol)%conf(iconf)%ZPVE     &
+                                            + mol(imol)%conf(iconf)%Gvib
+! Computing thermal corrections
+           mol(imol)%conf(iconf)%H = mol(imol)%conf(iconf)%Htrans      &
+                                        + mol(imol)%conf(iconf)%Hrot   &
+                                        + mol(imol)%conf(iconf)%Hvib
+           mol(imol)%conf(iconf)%E = mol(imol)%conf(iconf)%Etrans      &
+                                        + mol(imol)%conf(iconf)%Erot   &
+                                        + mol(imol)%conf(iconf)%Evib 
+           mol(imol)%conf(iconf)%S = mol(imol)%conf(iconf)%Strans      &
+                                        + mol(imol)%conf(iconf)%Srot   &
+                                        + mol(imol)%conf(iconf)%Svib   &
+                                        + mol(imol)%conf(iconf)%Sel
+           mol(imol)%conf(iconf)%G = mol(imol)%conf(iconf)%Gtrans      &
+                                        + mol(imol)%conf(iconf)%Grot   &
+                                        + mol(imol)%conf(iconf)%Gvib
+!
+           fmt1 = '(1X,A,3(1X,F12.4),2(1X,F16.4))'
+!
+           write(*,'(5X,A)') '- SI units (kJ/mol and J/K*mol)'
+           write(*,*)
+           write(*,'(8X,A,3(2X,A),2(6X,A))')                           &
+                   'Translation','   Rotation','  Vibration',          &
+                   ' Electronic','    Total  '
+           write(*,fmt1) 'De ',                                        &
+                          zero,zero,zero,                              &
+                          mol(imol)%conf(iconf)%Escf/1000,             &
+                          mol(imol)%conf(iconf)%Escf/1000
+           write(*,fmt1) 'ZPE',                                        &
+                          zero,zero,mol(imol)%conf(iconf)%ZPVE/1000,   &
+                          zero,mol(imol)%conf(iconf)%ZPVE/1000
+           write(*,fmt1) 'D0 ',                                        &
+                          zero,zero,mol(imol)%conf(iconf)%ZPVE/1000,   &
+                          mol(imol)%conf(iconf)%Escf/1000,             &                          
+                          mol(imol)%conf(iconf)%D0/1000
+           write(*,fmt1) 'E  ',                                        &
+                          mol(imol)%conf(iconf)%Etrans/1000,           &
+                          mol(imol)%conf(iconf)%Erot/1000,             &
+                          mol(imol)%conf(iconf)%Evib/1000,             &
+                          mol(imol)%conf(iconf)%Escf/1000,             &
+                          mol(imol)%conf(iconf)%E/1000                 &
+                          + mol(imol)%conf(iconf)%Escf/1000
+           write(*,fmt1) 'H  ',                                        &
+                          mol(imol)%conf(iconf)%Htrans/1000,           &
+                          mol(imol)%conf(iconf)%Hrot/1000,             &
+                          mol(imol)%conf(iconf)%Hvib/1000,             &
+                          mol(imol)%conf(iconf)%Escf/1000,             &
+                          mol(imol)%conf(iconf)%H/1000                 &
+                          + mol(imol)%conf(iconf)%Escf/1000
+           write(*,fmt1) 'T*S',                                        &
+                          mol(imol)%conf(iconf)%Strans*temp,           &
+                          mol(imol)%conf(iconf)%Srot*temp,             &
+                          mol(imol)%conf(iconf)%Svib*temp,             &
+                          mol(imol)%conf(iconf)%Sel*temp,              &
+                          mol(imol)%conf(iconf)%S*temp  
+           write(*,fmt1) 'G  ',                                        &
+                          mol(imol)%conf(iconf)%Gtrans/1000,           &
+                          mol(imol)%conf(iconf)%Grot/1000,             &
+                          mol(imol)%conf(iconf)%Gvib/1000,             &
+                          mol(imol)%conf(iconf)%Escf/1000,             &
+                          mol(imol)%conf(iconf)%G/1000                 &
+                          + mol(imol)%conf(iconf)%Escf/1000
+           write(*,*)
+!
+           fmt1 = '(1X,A,2X,3(1X,F12.8),4X,F12.8,4X,F16.8,1X,F16.8)'
+!
+           write(*,'(5X,A)') '- Atomic units (Hartree/particle and'//  &
+                                                  ' Hartree/K*particle)'
+           write(*,*)
+           write(*,'(8X,A,2(2X,A),3X,A,2X,A,5X,A)')                    &
+                        'Translation','   Rotation','  Vibration',     &
+                        'Thermal correction',' Electronic','      Total'
+           write(*,fmt1) 'De ',                                        &
+                          zero,zero,zero,zero,                         &
+                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%Escf/au2kj/1000
+           write(*,fmt1) 'ZPE',                                        &
+                          zero,zero,                                   &
+                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
+                          zero,                                        &
+                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000
+           write(*,fmt1) 'D0 ',                                        &
+                          zero,zero,                                   &
+                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%ZPVE/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &                          
+                          mol(imol)%conf(iconf)%D0/au2kj/1000
+           write(*,fmt1) 'E  ',                                        &
+                          mol(imol)%conf(iconf)%Etrans/au2kj/1000,     &
+                          mol(imol)%conf(iconf)%Erot/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%Evib/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%E/au2kj/1000,          &
+                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%E/au2kj/1000           &
+                          + mol(imol)%conf(iconf)%Escf/au2kj/1000
+           write(*,fmt1) 'H  ',                                        &
+                          mol(imol)%conf(iconf)%Htrans/au2kj/1000,     &
+                          mol(imol)%conf(iconf)%Hrot/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%Hvib/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%H/au2kj/1000,          &
+                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%H/au2kj/1000           &
+                          + mol(imol)%conf(iconf)%Escf/au2kj/1000
+           write(*,fmt1) 'T*S',                                        &
+                          mol(imol)%conf(iconf)%Strans/au2kj/1000*temp,&
+                          mol(imol)%conf(iconf)%Srot/au2kj/1000*temp,  &
+                          mol(imol)%conf(iconf)%Svib/au2kj/1000*temp,  &
+                          mol(imol)%conf(iconf)%S/au2kj/1000*temp,     &
+                          mol(imol)%conf(iconf)%Sel/au2kj/1000*temp,   &
+                          mol(imol)%conf(iconf)%S/au2kj/1000*temp
+           write(*,fmt1) 'G  ',                                        &
+                          mol(imol)%conf(iconf)%Gtrans/au2kj/1000,     &
+                          mol(imol)%conf(iconf)%Grot/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%Gvib/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%G/au2kj/1000,          &
+                          mol(imol)%conf(iconf)%Escf/au2kj/1000,       &
+                          mol(imol)%conf(iconf)%G/au2kj/1000           &
+                          + mol(imol)%conf(iconf)%Escf/au2kj/1000         
+           write(*,*)
+!
+           mol(imol)%conf(iconf)%E = mol(imol)%conf(iconf)%Escf        &
+                                               + mol(imol)%conf(iconf)%E 
+! 
+           mol(imol)%conf(iconf)%H = mol(imol)%conf(iconf)%Escf        &
+                                               + mol(imol)%conf(iconf)%H 
+!
+           mol(imol)%conf(iconf)%G = mol(imol)%conf(iconf)%Escf        &
+                                               + mol(imol)%conf(iconf)%G
+!
+         end do
+       end do
+!
+       return
+       end subroutine print_thermo
+!
+!======================================================================!
+!
+       subroutine conformations(temp,nmol,mol,mconf,order,forder,fcalc)
 !
        use parameters
        use datatypes
@@ -669,6 +786,8 @@
        integer,dimension(nmol,mconf)                 ::  order   !  Energy-based order
        integer,intent(in)                            ::  nmol    !  Number of chemical species
        integer,intent(in)                            ::  mconf   !  Maximum number of conformers
+       character(len=8),intent(in)                   ::  forder  !  Conformations order flag
+       character(len=8),intent(in)                   ::  fcalc   !  Calculation information flag
 !
 ! Local variables
 !
@@ -677,13 +796,25 @@
        integer                                       ::  imol    !  Molecule index
        integer                                       ::  iconf   !  Conformer index
 !
-!
+! Computing thermodynamic properties of the conformational equilibrium
 !
        call print_title(6,1,'Analysis of conformations','=')
        write(*,*)
-       write(*,'(2X,A)') 'Printing relative values to the lowest f'//  &
-                                                  'ree energy conformer'
-       write(*,*)
+!
+       select case ( forder )
+         case('GORDER')
+           write(*,'(2X,A)') 'Printing relative values to the lowe'//  &
+                                              'st free energy conformer'
+           write(*,*)
+         case('EORDER')
+           write(*,'(2X,A)') 'Printing relative values to the lowe'//  &
+                                                   'st energy conformer'
+           write(*,*)
+         case('DORDER')
+           write(*,'(2X,A)') 'Printing relative values to the lowe'//  &
+                                             'st energy conformer at 0K'
+           write(*,*)
+       end select
 !
        do imol = 1, nmol
          call print_titleint(6,3,'Conformations of molecular system',1,&
@@ -693,7 +824,7 @@
          if ( mol(imol)%nconf .eq. 1 ) then
            write(*,'(1X,A,1X,I3,1X,A)') 'Molecular system',imol,       &
                                          'is formed by a single species'
-           write(*,'(1X,A)') 'Skipping analysis of populations'
+           write(*,'(1X,A)') 'Skipping analysis of conformations'
            write(*,*) 
 !
            order(imol,1)    = 1
@@ -703,53 +834,126 @@
 !
            Gval(:)  = 0.0d0
 !
-           do iconf = 1, mol(imol)%nconf
-             order(imol,iconf) = iconf
-             Gval(iconf)       = mol(imol)%conf(iconf)%Gtherm
-           end do
+           select case ( forder )
+             case('GORDER')
+               do iconf = 1, mol(imol)%nconf
+                 order(imol,iconf) = iconf
+                 Gval(iconf)       = mol(imol)%conf(iconf)%G
+               end do
+             case('EORDER')
+               do iconf = 1, mol(imol)%nconf
+                 order(imol,iconf) = iconf
+                 Gval(iconf)       = mol(imol)%conf(iconf)%Escf
+               end do
+             case('DORDER')
+               do iconf = 1, mol(imol)%nconf
+                 order(imol,iconf) = iconf
+                 Gval(iconf)       = mol(imol)%conf(iconf)%D0
+               end do
+           end select
 !
            call dviqsort(mconf,Gval,order(imol,:),1,mol(imol)%nconf)
 !
            write(*,'(1X,A,1X,I3)') 'Printing relative values to co'//  &
                                                  'nformer',order(imol,1)
            write(*,*)
+
+           if ( (trim(fcalc).eq.'ALL') .and. (forder.eq.'EORDER') ) then
+             write(*,'(8(1X,A10),3X,A)') 'Conformer','D0','De','E',    &
+                                      'H','T*S','G','Boltz','Population'
+           else if ( trim(fcalc) .eq. 'ALL' ) then
+             write(*,'(8(1X,A10),3X,A)') 'Conformer','D0','De','E',    &
+                                        'H','T*S','G','Keq','Population'
+           else
+!~              write(*,'(3(1X,A10),3X,A)') 'Conformer','Energy',   &
+!~                                                     'Boltz','Population'
+             write(*,'(11X,A10,31X,2(1X,A10),3X,A)') 'Conformer','Energy',  &
+                                                    'Boltz','Population'
+           end if
 !
-           write(*,'(15X,7(1X,A10),3X,A)') 'D0','De','E','H','T*S',    &
-                                           'G','Keq','Population'
-!
-           fmt1 = '(1X,A,1X,I3,1X,8(1X,F10.4))'
+           if ( (trim(forder).ne.'EORDER') .and.                       &
+                                       (trim(forder).ne.'GORDER') ) then
+             do iconf = 1, mol(imol)%nconf
+               Gval(iconf) = mol(imol)%conf(order(imol,iconf))%G
+             end do
+           end if
 !
            mol(imol)%popsum = 0.0d0
+!
            do iconf = 1, mol(imol)%nconf
              mol(imol)%popsum = mol(imol)%popsum +                     & 
                               mol(imol)%conf(order(imol,iconf))%nequi  &  
-                              *dexp(-(Gval(iconf)-Gval(1))/Rjul/temp)   
+                              *dexp((Gval(1)-Gval(iconf))/Rjul/temp)   
            end do
 !
            do iconf = 1, mol(imol)%nconf
              mol(imol)%pop(order(imol,iconf)) =                        &
-                              dexp(-(Gval(iconf)-Gval(1))/Rjul/temp)   &
+                              dexp((Gval(1)-Gval(iconf))/Rjul/temp)    &
                                                        /mol(imol)%popsum
            end do
 !
-           do iconf = 1, mol(imol)%nconf     
-             write(*,fmt1) 'Conformer',order(imol,iconf),              &
-                        (mol(imol)%conf(order(imol,iconf))%Escf        &
-                         - mol(imol)%conf(order(imol,1))%Escf)/1000,   &
-                        (mol(imol)%conf(order(imol,iconf))%D0          &
-                         - mol(imol)%conf(order(imol,1))%D0)/1000,     &
-                        (mol(imol)%conf(order(imol,iconf))%Etherm      &
-                         - mol(imol)%conf(order(imol,1))%Etherm)/1000, &
-                        (mol(imol)%conf(order(imol,iconf))%Htherm      &
-                         - mol(imol)%conf(order(imol,1))%Htherm)/1000, &
-                        temp*(mol(imol)%conf(order(imol,iconf))%Stherm &
-                         - mol(imol)%conf(order(imol,1))%Stherm)/1000, &
-                        (mol(imol)%conf(order(imol,iconf))%Gtherm      &
-                         - mol(imol)%conf(order(imol,1))%Gtherm)/1000, &
-                        dexp(-(Gval(iconf)-Gval(1))/Rjul/temp),        &
-                        mol(imol)%conf(order(imol,iconf))%nequi        &
-                         *mol(imol)%pop(order(imol,iconf))
-           end do
+           if ( trim(fcalc) .eq. 'ALL' ) then
+             fmt1 = '(1X,I7,3X,8(1X,F10.4))'
+!
+             do iconf = 1, mol(imol)%nconf     
+               write(*,fmt1) order(imol,iconf),                        &
+                          (mol(imol)%conf(order(imol,iconf))%Escf      &
+                           - mol(imol)%conf(order(imol,1))%Escf)/1000, &
+                          (mol(imol)%conf(order(imol,iconf))%D0        &
+                           - mol(imol)%conf(order(imol,1))%D0)/1000,   &
+                          (mol(imol)%conf(order(imol,iconf))%E         &
+                           - mol(imol)%conf(order(imol,1))%E)/1000,    &
+                          (mol(imol)%conf(order(imol,iconf))%H         &
+                           - mol(imol)%conf(order(imol,1))%H)/1000,    &
+                          temp*(mol(imol)%conf(order(imol,iconf))%S    &
+                           - mol(imol)%conf(order(imol,1))%S)/1000,    &
+                          (mol(imol)%conf(order(imol,iconf))%G         &
+                           - mol(imol)%conf(order(imol,1))%G)/1000,    &
+                          dexp((Gval(1)-Gval(iconf))/Rjul/temp),       &
+                          mol(imol)%conf(order(imol,iconf))%nequi      &
+                                       *mol(imol)%pop(order(imol,iconf))
+             end do
+           else
+             fmt1 = '(1X,A50,1X,8(1X,F10.4))'
+!
+!~              do iconf = 1, mol(imol)%nconf     
+!~                write(*,fmt1) order(imol,iconf),                        &
+!~                           (mol(imol)%conf(order(imol,iconf))%Escf      &
+!~                            - mol(imol)%conf(order(imol,1))%Escf)/1000, &
+!~                           dexp((Gval(1)-Gval(iconf))/Rjul/temp),       &
+!~                           mol(imol)%conf(order(imol,iconf))%nequi      &
+!~                                        *mol(imol)%pop(order(imol,iconf))
+!~              end do
+!
+             do iconf = 1, mol(imol)%nconf     
+               write(*,fmt1) mol(imol)%conf(order(imol,iconf))%inp,    &
+                          (mol(imol)%conf(order(imol,iconf))%Escf      &
+                           - mol(imol)%conf(order(imol,1))%Escf)/1000, &
+                          dexp((Gval(1)-Gval(iconf))/Rjul/temp),       &
+                          mol(imol)%conf(order(imol,iconf))%nequi      &
+                                       *mol(imol)%pop(order(imol,iconf))
+             end do
+           end if
+!
+           if ( (trim(fcalc).eq.'ALL') .and.                           &
+                                       (trim(forder).eq.'EORDER') ) then
+             mol(imol)%popsum = 0.0d0
+!
+             do iconf = 1, mol(imol)%nconf
+               mol(imol)%popsum = mol(imol)%popsum +                   & 
+                          mol(imol)%conf(order(imol,iconf))%nequi      &  
+                          *dexp((mol(imol)%conf(order(imol,1))%G       &
+                                - mol(imol)%conf(order(imol,iconf))%G) &
+                                                             /Rjul/temp)   
+             end do
+!
+             do iconf = 1, mol(imol)%nconf
+               mol(imol)%pop(order(imol,iconf)) =                      &
+                          dexp((mol(imol)%conf(order(imol,1))%G        &
+                               - mol(imol)%conf(order(imol,iconf))%G)  &
+                                            /Rjul/temp)/mol(imol)%popsum
+             end do
+           end if
 !
            write(*,*) 
 ! 
@@ -762,8 +966,15 @@
 !
 !======================================================================!
 !
-       subroutine keq(temp,volu,nmol,mol,mconf,order,nreac,reac,       &
-                      fsoln)
+! References
+! ----------
+!
+! - Jensen, J. H., "Predicting accurate absolute binding energies in 
+!    aqueous solution: thermodynamic considerations for electronic 
+!    structure methods", Phys. Chem. Chem. Phys., The Royal Society of
+!    Chemistry, 2015, 17, 12441. http://dx.doi.org/10.1039/C5CP00628G
+!
+       subroutine keq(temp,nmol,mol,mconf,order,nreac,reac,fcalc)
 !
        use parameters
        use datatypes
@@ -779,12 +990,11 @@
        type(reaction),dimension(nreac),intent(inout)  ::  reac    !  Reactions information
        type(molecule),dimension(nmol),intent(inout)   ::  mol     !  Molecules information
        real(kind=8),intent(in)                        ::  temp    !  Temperature (K)
-       real(kind=8),intent(in)                        ::  volu    !  Volume (m**3)
        integer,dimension(nmol,mconf),intent(in)       ::  order   !  Energy-based order
        integer,intent(in)                             ::  nmol    !  Number of chemical species
        integer,intent(in)                             ::  nreac   !  Number of reactions
        integer,intent(in)                             ::  mconf   !  Maximum number of conformers
-       logical,intent(in)                             ::  fsoln   !  Standard state flag
+       character(len=8),intent(in)                    ::  fcalc   !  Calculation information flag
 !
 ! Local variables
 !
@@ -795,43 +1005,48 @@
        integer                                        ::  imol    !  Molecule index
        integer                                        ::  iaux    !
 !
-!
+! Computing thermodynamic properties of the reactions
 !
        call print_title(6,1,'Thermochemistry of the reactions','=')
        write(*,*)
 !
-       do imol = 1, nmol
-         mol(imol)%Gtot = mol(imol)%conf(1)%Gtherm -                   &
+       if ( trim(fcalc) .eq. 'ALL' ) then
+         do imol = 1, nmol
+           mol(imol)%Gtot = mol(imol)%conf(order(imol,1))%G -          & 
                                         Rjul*temp*dlog(mol(imol)%popsum)
 !
-         if ( fsoln ) mol(imol)%Gtot = mol(imol)%Gtot +                &
-                                               Rjul*temp*dlog(volu*1000)
+           mol(imol)%Detot = 0.0d0
+           mol(imol)%D0tot = 0.0d0
+           mol(imol)%Htot  = 0.0d0       
+           mol(imol)%Htot  = 0.0d0
+           mol(imol)%Stot  = 0.0d0
 !
-         mol(imol)%Detot = 0.0d0
-         mol(imol)%D0tot = 0.0d0
-         mol(imol)%Htot  = 0.0d0       
-         mol(imol)%Htot  = 0.0d0
-         mol(imol)%Stot  = 0.0d0
+           do iconf = 1, mol(imol)%nconf
+             mol(imol)%Detot = mol(imol)%Detot + mol(imol)%pop(iconf)  &
+                 *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%Escf
+             mol(imol)%D0tot = mol(imol)%D0tot + mol(imol)%pop(iconf)  &
+                   *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%D0
+             mol(imol)%Etot = mol(imol)%Etot + mol(imol)%pop(iconf)    &
+                    *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%E
+             mol(imol)%Htot = mol(imol)%Htot + mol(imol)%pop(iconf)    &
+                    *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%H
+             mol(imol)%Stot = mol(imol)%Stot +                         &
+                       mol(imol)%conf(iconf)%nequi                     &
+                       *(mol(imol)%conf(iconf)%S*mol(imol)%pop(iconf)  &
+                         - Rjul*mol(imol)%pop(iconf)                   &
+                                            *dlog(mol(imol)%pop(iconf)))
+           end do
+         end do 
+       else
+         do imol = 1, nmol
+           mol(imol)%Detot = 0.0d0
 !
-         do iconf = 1, mol(imol)%nconf
-           mol(imol)%Detot = mol(imol)%Detot + mol(imol)%pop(iconf)    &
-               *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%Escf
-           mol(imol)%D0tot = mol(imol)%D0tot + mol(imol)%pop(iconf)    &
-               *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%D0
-           mol(imol)%Etot = mol(imol)%Etot + mol(imol)%pop(iconf)      &
-               *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%Etherm
-           mol(imol)%Htot = mol(imol)%Htot + mol(imol)%pop(iconf)      &
-               *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%Htherm
-           mol(imol)%Stot = mol(imol)%Stot +                       &
-                mol(imol)%conf(iconf)%nequi                        &
-               *(mol(imol)%conf(iconf)%Stherm*mol(imol)%pop(iconf) &
-                   - Rjul*mol(imol)%pop(iconf)                     &
-                                          *dlog(mol(imol)%pop(iconf)))
-         end do
-!
-         if ( fsoln ) mol(imol)%Stot = mol(imol)%Stot +                &
-                                               Rjul*temp*dlog(volu*1000)
-       end do 
+           do iconf = 1, mol(imol)%nconf
+             mol(imol)%Detot = mol(imol)%Detot + mol(imol)%pop(iconf)  &
+                 *mol(imol)%conf(iconf)%nequi*mol(imol)%conf(iconf)%Escf
+           end do
+         end do 
+       end if
 !
        do ireac = 1, nreac
 !
@@ -871,16 +1086,27 @@
          call print_title(6,5,'Microscopic equilibrium properties','.')
          write(*,*)
 !
-         call microkeq(temp,nmol,mol,reac(ireac),inu,mconf,order)
+         call microkeq(temp,nmol,mol,reac(ireac),inu,mconf,order,fcalc)
 !
          call print_title(6,5,'Macroscopic equilibrium properties','.')
          write(*,*)
 !
-         write(*,'(10(1X,A10))') 'De','D0','E','H','T*S','G','Keq'
+         call reac_thermo(temp,reac(ireac),nmol,mol,fcalc)
 !
-         call reac_thermo(temp,reac(ireac),nmol,mol)
-!
-         call print_thermo(temp,reac(ireac))
+         if ( trim(fcalc) .eq. 'ALL' ) then
+           write(*,'(10(1X,A10))') 'De','D0','E','H','T*S','G','Keq'
+           write(*,'(6(1X,F10.4),1X,D10.4)') reac(ireac)%dDe/1000,     &
+                                             reac(ireac)%dD0/1000,     &
+                                             reac(ireac)%dE/1000,      &
+                                             reac(ireac)%dH/1000,      &
+                                        temp*reac(ireac)%dS/1000,      &
+                                             reac(ireac)%dG/1000,      &
+                                             reac(ireac)%Keq
+         else
+           write(*,'(1X,A,1X,F10.4)') 'Dissociation energy =',         &
+                                                    reac(ireac)%dDe/1000
+         end if
+         write(*,*)
 !
        end do
 !
@@ -889,7 +1115,7 @@
 !
 !======================================================================!
 !
-       subroutine reac_thermo(temp,reac,nmol,mol)
+       subroutine reac_thermo(temp,reac,nmol,mol,fcalc)
 !
        use parameters
        use datatypes
@@ -898,41 +1124,50 @@
 !
 ! Input/output variables
 !
-       type(reaction),intent(inout)               ::  reac  !  Reaction information
-       type(molecule),dimension(nmol),intent(in)  ::  mol   !  Molecules information
-       real(kind=8),intent(in)                    ::  temp  !  Temperature
-       integer,intent(in)                         ::  nmol  !  Number of chemical species
+       type(reaction),intent(inout)               ::  reac   !  Reaction information
+       type(molecule),dimension(nmol),intent(in)  ::  mol    !  Molecules information
+       character(len=8),intent(in)                ::  fcalc  !  Calculation information flag
+       real(kind=8),intent(in)                    ::  temp   !  Temperature
+       integer,intent(in)                         ::  nmol   !  Number of chemical species
 !
 ! Local variables
 !
-       integer                                    ::  imol  !  Molecule index
+       integer                                    ::  imol   !  Molecule index
 ! 
 ! Computing thermodynamic properties of reaction
 !
-       reac%dDe = 0.0d0
-       reac%dD0 = 0.0d0
-       reac%dE  = 0.0d0
-       reac%dH  = 0.0d0
-       reac%dS  = 0.0d0
-       reac%dG  = 0.0d0
+       if ( trim(fcalc) .eq. 'ALL' ) then
+         reac%dDe = 0.0d0
+         reac%dD0 = 0.0d0
+         reac%dE  = 0.0d0
+         reac%dH  = 0.0d0
+         reac%dS  = 0.0d0
+         reac%dG  = 0.0d0
 !
-       do imol = 1, nmol
-         reac%dDe = reac%dDe + reac%nu(imol)*mol(imol)%Detot
-         reac%dD0 = reac%dD0 + reac%nu(imol)*mol(imol)%D0tot
-         reac%dE  = reac%dE  + reac%nu(imol)*mol(imol)%Etot
-         reac%dH  = reac%dH  + reac%nu(imol)*mol(imol)%Htot
-         reac%dS  = reac%dS  + reac%nu(imol)*mol(imol)%Stot
-         reac%dG  = reac%dG  + reac%nu(imol)*mol(imol)%Gtot
-       end do
+         do imol = 1, nmol
+           reac%dDe = reac%dDe + reac%nu(imol)*mol(imol)%Detot
+           reac%dD0 = reac%dD0 + reac%nu(imol)*mol(imol)%D0tot
+           reac%dE  = reac%dE  + reac%nu(imol)*mol(imol)%Etot
+           reac%dH  = reac%dH  + reac%nu(imol)*mol(imol)%Htot
+           reac%dS  = reac%dS  + reac%nu(imol)*mol(imol)%Stot
+           reac%dG  = reac%dG  + reac%nu(imol)*mol(imol)%Gtot
+         end do
 !
-       reac%Keq = dexp(-reac%dG/Rjul/temp)
+         reac%Keq = dexp(-reac%dG/Rjul/temp)
+       else
+         reac%dDe = 0.0d0
+!
+         do imol = 1, nmol
+           reac%dDe = reac%dDe + reac%nu(imol)*mol(imol)%Detot
+         end do
+       end if
 !
        return
        end subroutine reac_thermo
 !
 !======================================================================!
 !
-       subroutine microkeq(temp,nmol,mol,reac,inu,mconf,order)
+       subroutine microkeq(temp,nmol,mol,reac,inu,mconf,order,fcalc)
 !
        use datatypes
        use parameters
@@ -948,6 +1183,7 @@
        integer,dimension(nmol),intent(in)         ::  inu     !  Sorted stoichiometric coefficients
        integer,intent(in)                         ::  nmol    !  Number of chemical species
        integer,intent(in)                         ::  mconf   !  Maximum number of conformers
+       character(len=8),intent(in)                ::  fcalc   !  Calculation information flag
 !
 ! Local variables
 !
@@ -972,14 +1208,6 @@
        integer                                    ::  isize2  !
 !
 ! Computing the microequilibrium thermodynamic properties
-!
-       reac%dDe = 0.0d0
-       reac%dD0 = 0.0d0
-       reac%dE  = 0.0d0
-       reac%dH  = 0.0d0
-       reac%dS  = 0.0d0
-       reac%dG  = 0.0d0
-       reac%Keq = 0.0d0
 !
        ncombi = 1
        mmol   = 0
@@ -1010,53 +1238,59 @@
 !
        write(straux,*) isize2
        straux = adjustl(straux)
-!~        fmt2 = trim(fmt2)//trim(straux)//'X,6(1X,F10.4),1X,E10.4)'
        fmt2 = trim(fmt2)//trim(straux)//'X,6(1X,F10.4),1X,D10.4)'
-
 !
-!~        write(*,'(1X,A,1X,7(1X,A10))') 'Conformer index','D0','De',   &
-!~                                                   'E','H','T*S','G','Keq'
-       write(*,fmt1) 'Conformer index','De','D0','E','H','T*S','G','Keq'
+       if ( trim(fcalc) .eq. 'ALL' ) then
+         write(*,fmt1) 'Conformer index','De','D0','E','H','T*S',    &
+                                                               'G','Keq'
+       else
+         write(*,fmt1) 'Conformer index','De'
+       end if
 !
        iconf(:) = 1
 !
        do icombi = 1, ncombi
 !
-         dDe = 0.0d0
-         dD0 = 0.0d0
-         dE  = 0.0d0
-         dH  = 0.0d0
-         dS  = 0.0d0
-         dG  = 0.0d0
+         if ( trim(fcalc) .eq. 'ALL' ) then
+           dDe = 0.0d0
+           dD0 = 0.0d0
+           dE  = 0.0d0
+           dH  = 0.0d0
+           dS  = 0.0d0
+           dG  = 0.0d0
 !
-         do imol = 1, nmol
-           dDe = dDe + reac%nu(inu(imol))*mol(inu(imol))%              &
+           do imol = 1, nmol
+             dDe = dDe + reac%nu(inu(imol))*mol(inu(imol))%            &
                             conf(order(inu(imol),iconf(inu(imol))))%Escf
-           dD0 = dD0 + reac%nu(inu(imol))*mol(inu(imol))%              &
+             dD0 = dD0 + reac%nu(inu(imol))*mol(inu(imol))%            &
                               conf(order(inu(imol),iconf(inu(imol))))%D0
-           dE  = dE  + reac%nu(inu(imol))*mol(inu(imol))%              &
-                          conf(order(inu(imol),iconf(inu(imol))))%Etherm
-           dH  = dH  + reac%nu(inu(imol))*mol(inu(imol))%              &
-                          conf(order(inu(imol),iconf(inu(imol))))%Htherm
-           dS  = dS  + reac%nu(inu(imol))*mol(inu(imol))%              &
-                          conf(order(inu(imol),iconf(inu(imol))))%Stherm
-           dG  = dG  + reac%nu(inu(imol))*mol(inu(imol))%              &
-                          conf(order(inu(imol),iconf(inu(imol))))%Gtherm
-         end do
+             dE  = dE  + reac%nu(inu(imol))*mol(inu(imol))%            &
+                               conf(order(inu(imol),iconf(inu(imol))))%E
+             dH  = dH  + reac%nu(inu(imol))*mol(inu(imol))%            &
+                               conf(order(inu(imol),iconf(inu(imol))))%H
+             dS  = dS  + reac%nu(inu(imol))*mol(inu(imol))%            &
+                               conf(order(inu(imol),iconf(inu(imol))))%S
+             dG  = dG  + reac%nu(inu(imol))*mol(inu(imol))%            &
+                               conf(order(inu(imol),iconf(inu(imol))))%G
+           end do
 !
-         Keq = dexp(-dG/Rjul/temp)
+           Keq = dexp(-dG/Rjul/temp)
 !
-         reac%dDe = reac%dDe + dDe
-         reac%dD0 = reac%dD0 + dD0
-         reac%dE  = reac%dE  + dE
-         reac%dH  = reac%dH  + dH
-         reac%dS  = reac%dS  + dS
-         reac%dG  = reac%dG  + dG
-         reac%Keq = reac%Keq + Keq
+           write(*,fmt2) (order(inu(imol),iconf(inu(imol))),           &
+                                                          imol=1,mmol),&
+                          dDe/1000,dD0/1000,dE/1000,dH/1000,           &
+                                                temp*dS/1000,dG/1000,Keq
+         else
+           dDe = 0.0d0
 !
-         write(*,fmt2) (order(inu(imol),iconf(inu(imol))),imol=1,mmol),&
-                        dDe/1000,dD0/1000,dE/1000,dH/1000,             &
-                                                temp*dS/1000,dG/1000,Keq  ! FLAG: change format keq
+           do imol = 1, nmol
+             dDe = dDe + reac%nu(inu(imol))*mol(inu(imol))%            &
+                            conf(order(inu(imol),iconf(inu(imol))))%Escf
+           end do
+!
+           write(*,fmt2) (order(inu(imol),iconf(inu(imol))),           &
+                                                   imol=1,mmol),dDe/1000
+         end if
 !
          iconf(inu(mmol)) = iconf(inu(mmol)) + 1
          imol = mmol
@@ -1158,25 +1392,5 @@
 !
        return
        end subroutine print_react
-!
-!======================================================================!
-!
-       subroutine print_thermo(temp,reac)
-!
-       use datatypes
-!
-       implicit none
-!
-       type(reaction),intent(in)  ::  reac    !  Reaction information
-       real(kind=8),intent(in)    ::  temp    !  Temperature
-!
-!~        write(*,'(6(1X,F10.4),1X,E10.4)') reac%dDe/1000,reac%dD0/1000,  &
-       write(*,'(6(1X,F10.4),1X,D10.4)') reac%dDe/1000,reac%dD0/1000,  &
-                                 reac%dE/1000,reac%dH/1000,            &
-                                 temp*reac%dS/1000,reac%dG/1000,reac%Keq  ! FLAG: change format keq
-       write(*,*)
-!
-       return
-       end subroutine print_thermo
 !
 !======================================================================!

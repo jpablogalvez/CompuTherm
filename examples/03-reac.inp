@@ -38,12 +38,10 @@
 **END SYSTEM
 
 **PROP
-  *QVIB
+  *FREQ
    .SCALING     ! Frequencies scaling factor
      1.0d0
-   .TYPE        ! Possible keywords : QHO, ROT and GAS (default)
-     GAS
-  *FREE
+  *THERMO
 !   .SOLN        ! Possible options  : .SOLN and .GAS (default)
    .ENAN        ! Possible options  : .ENAN and .NOENAN (default)
    .INDIST      ! Possible options  : .INDIST and .DISTIN (default)
