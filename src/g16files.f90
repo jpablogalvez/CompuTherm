@@ -15,17 +15,23 @@
 !
 !======================================================================!
 !
-       subroutine read_log(fcalc,inp,nat,coord,atname,znum,atmass,     &
-                           dof,freq,inten,moment,mass,eldeg,Escf)
+       subroutine read_log(fcalc,inp,auxinp,nat,coord,atname,znum,     &
+                           atmass,dof,freq,inten,moment,mass,eldeg,    &
+                           Escf,wfn,schm)
 !
+       use datatypes
        use parameters
        use inertia
+       use utils
 !
        implicit none
 !
 ! Input/output variables
 !
+       type(scheme),intent(in)                      ::  schm    !
        character(len=*),intent(in)                  ::  inp     ! 
+       character(len=*),dimension(:),intent(in)     ::  auxinp  ! 
+       character(len=*),intent(in)                  ::  wfn     !  Wavefunction information
        character(len=8),intent(in)                  ::  fcalc   !  Calculation information flag
        character(len=5),dimension(nat),intent(out)  ::  atname  !  Atom names
        real(kind=8),dimension(3,nat),intent(out)    ::  coord   !
@@ -42,6 +48,8 @@
 !
 ! Local variables
 !
+       real(kind=8)                                 ::  Ell     !
+       real(kind=8)                                 ::  Ehl     !
        real(kind=8),dimension(3,3)                  ::  axes    !  Principal axes
        integer                                      ::  io      !  Input/Output status
 !
@@ -49,6 +57,7 @@
 !
        open(unit=uniinp,file=trim(inp),action='read',                  &
             status='old',iostat=io)
+       if ( io .ne. 0 ) call print_missinp(inp)
 !
 ! Reading electronic degeneracy
 !
@@ -58,9 +67,43 @@
 !
        call read_znum(inp,nat,znum,atname,atmass,mass)
 !
-! Reading converged SCF energy ! FLAG: only supports SCF calculations
+! Reading converged SCF energy
 !
-       call read_energy(inp,Escf)
+       select case (trim(schm%fschm))
+         case ('NORMAL')
+!
+           call read_energy(uniinp,inp,Escf,wfn)
+!
+         case ('HL')
+!
+           open(unit=uniinp+1,file=trim(auxinp(1)),action='read',      &
+                status='old',iostat=io)
+           if ( io .ne. 0 ) call print_missinp(auxinp(1))
+!
+           call read_energy(uniinp+1,auxinp(1),Escf,schm%wfn)
+!
+           close(uniinp+1)
+!
+         case ('HLSOL')
+!
+           open(unit=uniinp+1,file=trim(auxinp(1)),action='read',      &
+                status='old',iostat=io)
+           if ( io .ne. 0 ) call print_missinp(auxinp(1))
+!
+           open(unit=uniinp+2,file=trim(auxinp(2)),action='read',      &
+                status='old',iostat=io)
+           if ( io .ne. 0 ) call print_missinp(auxinp(2))
+!
+           call read_energy(uniinp,inp,Escf,wfn)
+           call read_energy(uniinp+1,auxinp(1),Ell,wfn)
+           call read_energy(uniinp+2,auxinp(2),Ehl,schm%wfn)
+!
+           Escf = Escf - Ell + Ehl
+!
+           close(uniinp+1)
+           close(uniinp+2)
+!
+       end select
 !
        rewind(uniinp)
 !
@@ -79,7 +122,7 @@
 !
        rewind(uniinp)
 !
-! Reading vibrational frequencies and IR intensities  ! FLAG: breaks for linear molecules
+! Reading vibrational frequencies and IR intensities  ! FIXME: breaks for linear molecules
 !
        if ( nat .gt. 2 ) then
          call read_ir(inp,nat,dof,freq,inten)
@@ -92,7 +135,7 @@
 !
 !======================================================================!
 !
-       subroutine chk_log(inp,nat,fcalc)
+       subroutine chk_log(inp,nat,fcalc,fchck)
 !
        use utils,     only: print_missinp
 !
@@ -103,7 +146,7 @@
        character(len=leninp),intent(in)  ::  inp     !  Input file name
        integer,intent(out)               ::  nat     !  Number of atoms
        character(len=8),intent(in)       ::  fcalc   !  Calculation information flag
-
+       logical,intent(in)                ::  fchck
 !
 ! Local variables
 !
@@ -120,14 +163,19 @@
          call print_missinp(inp)
        end if
 ! 
-! Reading number of atoms !   FLAG: linear molecules not considered
+! Reading number of atoms !   TODO: linear molecules not considered
 !
        call find_key('NAtoms=',line,io)
        if ( io .ne. 0 ) call print_badread(inp,'NAtoms=')
 !
        read(line,*) straux,nat,line
 !
-       rewind(uniinp)
+       if ( fchck ) then
+         rewind(uniinp)
+       else
+         close(uniinp)
+         return
+       end if
 !
 ! Fatal errors check
 !
@@ -146,9 +194,9 @@
 !
          case ('ALL')
 !
-           call chk_opt(inp)
+!~            call chk_opt(inp)
 !
-           rewind(uniinp)
+!~            rewind(uniinp)
 !
            call chk_imagi(inp)
 !
@@ -222,7 +270,7 @@
 !
 !======================================================================!
 !
-       subroutine find_last(key,line,iost)
+       subroutine find_last(uni,key,line,iost)
 !
        implicit none
 !
@@ -230,6 +278,7 @@
 !
        character(len=*),intent(in)         ::  key     !  Input file name
        character(len=lenline),intent(out)  ::  line    !  Line read
+       integer,intent(in)                  ::  uni     !
        integer,intent(out)                 ::  iost    !  Reading status
 !
 ! Local variables
@@ -244,7 +293,7 @@
        iost   = 1
 !
        do
-         read(uniinp,'(A)',iostat=io) straux
+         read(uni,'(A)',iostat=io) straux
          if ( io /= 0 ) exit
          straux = adjustl(straux)
          if ( straux(:keylen) .eq. trim(key) ) then
@@ -375,8 +424,9 @@
        integer                      ::  io      !  Input/Output status
 !
 ! Checking if the optimization therminated abnormally
-!
-       call find_key('-- Stationary point found',line,io)
+! 
+       io = 0
+!~        call find_key('-- Stationary point found',line,io)  ! FIXME: breaks if only frequency calculation
        if ( io .ne. 0 ) then
          write(*,*)
          write(*,'(2X,68("="))')
@@ -435,29 +485,56 @@
 !
 !======================================================================!
 !
-       subroutine read_energy(inp,Escf)
+       subroutine read_energy(uni,inp,Escf,wfn)
 !
        implicit none
 !
 ! Input/output variables
 !
        character(len=*),intent(in)  ::  inp     ! 
+       character(len=*),intent(in)  ::  wfn     !  Wavefunction information
        real(kind=8),intent(out)     ::  Escf    !
+       integer,intent(in)           ::  uni     !
 !
 ! Local variables
 !
        character(len=lenline)       ::  line    !  Line read
        integer                      ::  io      !  Input/Output status
 !
-! Reading converged SCF energy ! FLAG: only supports SCF calculations
+! Reading converged SCF energy ! TODO: only supports SCF calculations
 !
-       call find_last('SCF Done',line,io)
-       if ( io .ne. 0 ) call print_badread(inp,'SCF Done')
+       if ( trim(wfn) .eq. 'SCF' ) then
 !
-       io = index(line,'=',.TRUE.)
-       line = line(io+1:)
+         call find_last(uni,'SCF Done',line,io)
+         if ( io .ne. 0 ) call print_badread(inp,'SCF Done')
 !
-       read(line,*) Escf,line
+         io = index(line,'=',.TRUE.)
+         line = line(io+1:)
+!
+         read(line,*) Escf,line
+!
+       else if ( trim(wfn) .eq. 'EXTERNAL' ) then
+!
+         call find_last(uni,'Energy=',line,io)
+         if ( io .ne. 0 ) call print_badread(inp,'Energy=')
+!
+         io = index(line,'=',.FALSE.)
+         line = line(io+1:)
+!
+         read(line,*) Escf,line
+!
+       else if ( trim(wfn) .eq. 'COUNTERPOISE' ) then
+!
+         call find_last(uni,'Counterpoise corrected energy',line,io)
+         if ( io .ne. 0 ) call print_badread(inp,'Counterpoise cor'//  &
+                                             'rected energy')
+!
+         io = index(line,'=',.TRUE.)
+         line = line(io+1:)
+!
+         read(line,*) Escf
+!
+       end if
 !
        return
        end subroutine read_energy
@@ -506,7 +583,7 @@
        integer                                  ::  io      !  Input/Output status
        integer                                  ::  i,j     !  Indexes
 !
-! Reading vibrational frequencies and IR intensities  ! FLAG: breaks for linear molecules
+! Reading vibrational frequencies and IR intensities  ! FIXME: breaks for linear molecules
 !
        j = 0
        do i = 1, nat - 2
@@ -528,6 +605,9 @@
 !
          j = j + 3
        end do
+!
+       inten(:) = 100.0d0/log(10.0)*inten(:)/freq(:)
+!~        inten(:) = inten(:)/freq(:)  !  JC formula without concentration
 !
        return
        end subroutine read_ir

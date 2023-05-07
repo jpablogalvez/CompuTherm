@@ -4,8 +4,10 @@ BDIR =../bin
 ODIR =./obj
 MDIR =./mod
 SDIR =.
-libpath=/usr/lib/x86_64-linux-gnu/lapack/liblapack.so \
+DIR  = ~/mis_bin
+#libpath=/usr/lib/x86_64-linux-gnu/lapack/liblapack.so \
 	/usr/lib/x86_64-linux-gnu/blas/libblas.so
+libpath = -lblas -llapack
 
 # Compiler/Linker settings
 FC = gfortran -I$(IDIR) -J$(MDIR)  # -Wno-argument-mismatch 
@@ -14,6 +16,7 @@ FCFLAGS = -g -c -Wall -Wextra -Wconversion -Og -fcheck=bounds -fmax-errors=5
 PROGRAM = computherm
 SRCF90  = g16_computherm.f90
 SRCMOD  = parameters.f90   \
+          lineshape.f90    \
           utils.f90        \
           sorting.f90      \
           mathtools.f90    \
@@ -24,7 +27,8 @@ SRCMOD  = parameters.f90   \
           g16files.f90     \
           input.f90        \
           statmech.f90     \
-          superpose.f90
+          superpose.f90    \
+          screening.f90
 
 # Find all source files, create a list of corresponding object files
 OBJ     = $(patsubst %.f90,$(ODIR)/%.o,$(SRCF90))
@@ -70,7 +74,7 @@ debug:
 #	DEBUG=1 make clean $(BDIR)/$(PROGRAM)
 
 install:
-	cp $(BDIR)/$(PROGRAM) ~/mis_bin
+	cp $(BDIR)/$(PROGRAM) $(DIR)
 
 clean:
 	rm -f $(ODIR)/*.o $(MDIR)/*mod $(BDIR)/$(PROGRAM) $(BDIR)/debug

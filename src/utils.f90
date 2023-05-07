@@ -1311,6 +1311,81 @@
 !
 !======================================================================!
 !
+       subroutine select_schm(instr,outstr)
+!
+       implicit none
+!
+! Input/output variables
+!
+       character(len=*),intent(in)   ::  instr   !      
+       character(len=*),intent(out)  ::  outstr  !      
+!
+!
+!
+       outstr = uppercase(instr)
+!
+       select case (trim(outstr))
+         case ('NORMAL')
+           outstr = 'NORMAL'
+         case ('HLSOL','HLSOLVENT','HL-SOLVENT')
+           outstr = 'HLSOL'
+         case ('HL','HIGH-LEVEL','HLGAS')
+           outstr = 'HL'
+         case default
+           write(*,'(3X,A)') 'ERROR:  Invalid value introduced for'//  &
+                                                         ' .TYPE option'
+           write(*,*) 
+           write(*,'(3X,A)') 'Unrecognised value     : '//trim(instr)
+           write(*,*)
+           write(*,'(3X,A)') 'Please, choose between:  "NORMAL", "'//  & 
+                                                        'HL" or "HLSOL"'
+           write(*,'(2X,68("="))')
+           write(*,*)
+           call print_end()
+       end select
+!
+       return
+       end subroutine select_schm
+!
+!======================================================================!
+!
+       subroutine select_wfn(str)
+!
+       implicit none
+!
+! Input/output variables
+!
+       character(len=*),intent(inout)  ::  str  !      
+!
+!
+!
+       str = uppercase(str)
+!
+       select case (trim(str))
+         case ('SCF','DFT','HF','UHF','RHF')
+           str = 'SCF'
+         case ('EXT','EXTERNAL')
+           str = 'EXTERNAL'
+         case ('CP','CPC','COUNTERPOISE')
+           str = 'COUNTERPOISE'
+         case default
+           write(*,'(3X,A)') 'ERROR:  Invalid value introduced for'//  &
+                                                          ' .WFN option'
+           write(*,*)
+           write(*,'(3X,A)') 'Unrecognised value     : '//trim(str)
+           write(*,*)
+           write(*,'(3X,A)') 'Please, choose between:  "SCF", "EXT'//  &
+                                              'ERNAL" or "COUNTERPOISE"'
+           write(*,'(2X,68("="))')
+           write(*,*)
+           call print_end()
+       end select
+!
+       return
+       end subroutine select_wfn
+!
+!======================================================================!
+!
        end module utils
 !
 !======================================================================!

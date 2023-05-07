@@ -303,20 +303,20 @@
 !
 ! This subroutine calculates the optimal rotation matrix that minimizes
 !  the RMSD between a reference structure RCOORD(3,NAT) and the target
-!  structure FCOORD(3,NAT) by means of a quaternions-based algorithm.
-!  Input structures must be centred on their baricenters before calling
-!  this subroutine
+!  structure FCOORD(3,NAT) corresponding to the best proper or improper
+!  rotation by means of a quaternions-based algorithm. Input structures 
+!  must be centred on their baricenters before calling this subroutine
 !
 ! References
 ! ----------
 !
-! - Coutsias, E. A.; Seok, C. & Dill, K. A., "Using quaternions to cal-
+! - Coutsias, E. A.; Seok, C. & Dill, K. A. "Using quaternions to cal-
 !    culate RMSD", Journal of Computational Chemistry, 2004, 25, 
 !    1849-1857. https://doi.org/10.1002/jcc.20110
 ! - Theobald, D. L. "Rapid calculation of RMSDs using a quaternion-based
 !    characteristic polynomial", Acta Crystallographica Section A, 2005, 
 !    61, 478-480. https://doi.org/10.1107/S0108767305015266
-! - Kneller, G. R., "Comment on "Using quaternions to calculate RMSD" 
+! - Kneller, G. R. "Comment on "Using quaternions to calculate RMSD" 
 !    [J. Comp. Chem. 25, 1849 (2004)]", Journal of Computational Chemis-
 !    try, 2005, 26, 1660-1662. https://doi.org/10.1002/jcc.20296
 !
@@ -337,6 +337,7 @@
        real(kind=8),dimension(4,4)               ::  diag    !  Matrix to be diagonalized
        real(kind=8),dimension(4,4)               ::  eigvec  !  Eigenvectors
        real(kind=8),dimension(4)                 ::  quat    !  Quaternion
+       logical                                   ::  improp  !  Improper rotation lfag
 !
 ! Calculating the covariance matrix
 !
@@ -365,11 +366,27 @@
 !
 ! Extracting the quaternion associated to the maximum eigenvalue
 !
-       quat(:) = eigvec(:,4)
+       improp = .FALSE.
+!
+!~        if ( (quat(1)+quat(4)) .lt. (quat(2)+quat(3)) ) then
+!~          improp  = .TRUE.
+!~          quat(:) = eigvec(:,1)
+!~        else
+!~          quat(:) = eigvec(:,4)
+!~        end if
+!
+       if ( abs(quat(1)) .gt. quat(4) ) then
+         improp  = .TRUE.
+         quat(:) = eigvec(:,1)
+       else
+         quat(:) = eigvec(:,4)
+       end if
 !
 ! Building the optimal rotation matrix
 !
        call quat2mat(quat,rota)
+!
+       if ( improp ) rota(:,:) = -rota(:,:)
 !
        return
        end subroutine drotctk
@@ -440,20 +457,20 @@
          end do
        end do
 !
-       RMSD = dsqrt(RMSD/ndim)
+       RMSD = dsqrt(RMSD/nat)
 !
        return
        end subroutine dmcalcrmsd
 !
 !======================================================================!
 !
-! DMCALCMAPE - Double precision Matrix CALCulate Mean Absolute Percentage Error
+! DMCALCMAE - Double precision Matrix CALCulate Mean Absolute Error
 !
-! This subroutine computes the mean absolute percentage error between an
-!  input set of coordinates FCOORD(NDIM,NAT) with respect to a referen-
-!  ce set of coordinates RCOORD(NDIM,NAT)
+! This subroutine computes the mean absolute error between an input set
+!  of coordinates FCOORD(NDIM,NAT) with respect to a reference set of
+!  coordinates RCOORD(NDIM,NAT)
 !
-       subroutine dmcalcmape(ndim,nat,fcoord,rcoord,MAPE,BAPE)
+       subroutine dmcalcmae(ndim,nat,fcoord,rcoord,MAE,BAE)
 !
        implicit none
 !
@@ -461,8 +478,8 @@
 !
        real(kind=8),dimension(ndim,nat),intent(in)  ::  fcoord  !  Input coordinates
        real(kind=8),dimension(ndim,nat),intent(in)  ::  rcoord  !  Reference coordinates
-       real(kind=8),intent(out)                     ::  MAPE    !  Mean absolute percentage error
-       real(kind=8),intent(out)                     ::  BAPE    !  Biggest absolute percentage error
+       real(kind=8),intent(out)                     ::  MAE     !  Mean absolute error
+       real(kind=8),intent(out)                     ::  BAE     !  Biggest absolute error
        integer,intent(in)                           ::  ndim    !  Space dimension
        integer,intent(in)                           ::  nat     !  Number of points
 !
@@ -473,22 +490,28 @@
 !
 ! Computing RMSD between input structures
 ! 
-       MAPE = 0.0d0 
-       BAPE = 0.0d0
+       MAE = 0.0d0 
+       BAE = 0.0d0
 !
        do i = 1, nat
-         do j = 1, ndim
-           daux = dabs((rcoord(j,i) - fcoord(j,i))/rcoord(j,i))
 !
-           MAPE = MAPE + daux
-           BAPE = max(BAPE,daux*100)
+         daux = 0.0d0
+!
+         do j = 1, ndim
+           daux = daux + (rcoord(j,i) - fcoord(j,i))**2
          end do
+!
+         daux = sqrt(daux)
+!
+         MAE = MAE + daux
+         BAE = max(BAE,daux)
+!
        end do
 !
-       MAPE = MAPE/ndim*100
+       MAE = MAE/nat
 !
        return
-       end subroutine dmcalcmape
+       end subroutine dmcalcmae
 !
 !======================================================================!
 !
