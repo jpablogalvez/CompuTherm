@@ -1,0 +1,79 @@
+!
+**SYSTEM
+  *MOLECULE
+   NConf = 1 Name = PhOH phase =ccl4
+   .SYMNUM
+    1
+   .FILE
+    monomero.log
+  *MOLECULE
+   NConf=38 name=(PhOH)2 Phase=CCl4
+   .NFRAG
+    2
+!   .SYMNUM
+!
+   .READ
+    final_dimero
+  *MOLECULE
+   NConf=133 name=(PhOH)3 Phase=CCl4
+   .NFRAG
+    3
+!   .SYMNUM
+!
+   .READ
+    final_trimero
+  *MOLECULE
+   NConf=75 name=(PhOH)4 Phase=CCl4
+   .NFRAG
+    4
+!   .SYMNUM
+!
+   .READ
+    final_tetramero
+**END SYSTEM
+
+**PROP
+  *GENERAL
+   .ORDER        ! Possible keywords : EORDER, DORDER and GORDER (default)
+     GORDER
+   .READ         ! Possible keywords : EONLY, OPT, FREQ and ALL (default)
+     ALL
+  *FREQ
+   .SCALING      ! Frequencies scaling factor
+     0.97d0
+  *SCREEN
+   .ROTATION     ! Possible keywords : KABSCH, QUATKK and QUATCTK (default)
+    QUATCTK
+   .RMSDMAX in Angstroms
+    0.3d0
+   .MAEMAX ! Angstroms
+    0.25d0
+   .BAEMAX (Angstroms)
+    0.5d0
+  *THERMO
+   .TYPE         ! Possible keywords : MIX, QRRHO, QHO and RRHO (default)
+    QRRHO
+   .CUTOFF (cm**-1) ! Cutoff frequency
+    50.0d0
+   .SOLN         ! Possible options  : .SOLN and .GAS (default)
+    153.82 1.59  ! Only for .SOLN    :  Molecular mass and density (g/mol and kg/L) 
+!   1000.0 1.0
+   .ENAN         ! Possible options  : .ENAN and .NOENAN (default)
+!   .INDIST       ! Possible options  : .INDIST and .DISTIN (default)
+**END PROP
+
+**REACTOR
+  *REACTIONS
+   .NREAC
+     9
+   .SCHEMES
+     2 PhOH = (PhOH)2
+     3 PhOH = (PhOH)3
+     PhOH + (PhOH)2 = (PhOH)3
+     3 (PhOH)2 = 2 (PhOH)3
+     4 PhOH = (PhOH)4
+     2 PhOh + (PhOH)2 = (PhOH)4
+     PhOH + (PhOH)3 =(PhOH)4
+     2 (PhOH)2 =   (PhOH)4
+     4 (PhOH)3 = 3 (PhOH)4
+**END REACTOR
