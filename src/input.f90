@@ -616,7 +616,7 @@
 !
                do i = 1, mol(imol)%nconf        ! TODO: check if input names are introduced correctly
 !
-                 if ( trim(mol(imol)%schm%fschm) .eq. 'HLSOL' ) then
+                 if ( trim(mol(imol)%schm%fschm) .eq. 'LLSOL' ) then
                    allocate(mol(imol)%conf(i)%auxinp(2))
                  else if ( trim(mol(imol)%schm%fschm) .eq. 'HL' ) then
                    allocate(mol(imol)%conf(i)%auxinp(1))
@@ -627,7 +627,7 @@
                  mol(imol)%conf(i)%inp = adjustl(mol(imol)%conf(i)%inp) 
                  mol(imol)%conf(i)%auxinp(:) =                         &
                                     adjustl(mol(imol)%conf(i)%auxinp(:)) 
-!~                  if ( trim(schm%fschm) .eq. 'HLSOL' ) then
+!~                  if ( trim(schm%fschm) .eq. 'LLSOL' ) then
 !~                    mol(imol)%conf(i)%auxinp(1) =                       &
 !~                                     adjustl(mol(imol)%conf(i)%auxinp(1)) 
 !~                    mol(imol)%conf(i)%auxinp(2) =                       &
@@ -687,18 +687,21 @@
 !
                do i = 1, mol(imol)%nconf        ! TODO: check if input names are introduced correctly
 !
-                 if ( trim(mol(imol)%schm%fschm) .eq. 'HLSOL' ) then
-                   allocate(mol(imol)%conf(i)%auxinp(2))
-                 else if ( trim(mol(imol)%schm%fschm) .eq. 'HL' ) then
-                   allocate(mol(imol)%conf(i)%auxinp(1))
-                 end if
+                 select case (trim(mol(imol)%schm%fschm))
+                   case ('HLSOL')
+                     allocate(mol(imol)%conf(i)%auxinp(3))
+                   case ('LLSOL')
+                     allocate(mol(imol)%conf(i)%auxinp(2))
+                   case ('HL')
+                     allocate(mol(imol)%conf(i)%auxinp(1))
+                 end select
 !
                  read(uniaux,*) mol(imol)%conf(i)%inp,                 &
                                              mol(imol)%conf(i)%auxinp(:)
                  mol(imol)%conf(i)%inp = adjustl(mol(imol)%conf(i)%inp) 
                  mol(imol)%conf(i)%auxinp(:) =                         &
                                     adjustl(mol(imol)%conf(i)%auxinp(:)) 
-!~                  if ( trim(schm%fschm) .eq. 'HLSOL' ) then
+!~                  if ( trim(schm%fschm) .eq. 'LLSOL' ) then
 !~                    mol(imol)%conf(i)%auxinp(1) =                       &
 !~                                     adjustl(mol(imol)%conf(i)%auxinp(1)) 
 !~                    mol(imol)%conf(i)%auxinp(2) =                       &

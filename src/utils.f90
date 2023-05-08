@@ -1327,6 +1327,8 @@
        select case (trim(outstr))
          case ('NORMAL')
            outstr = 'NORMAL'
+         case ('LLSOL','LLSOLVENT','LL-SOLVENT')
+           outstr = 'LLSOL'
          case ('HLSOL','HLSOLVENT','HL-SOLVENT')
            outstr = 'HLSOL'
          case ('HL','HIGH-LEVEL','HLGAS')
@@ -1338,7 +1340,7 @@
            write(*,'(3X,A)') 'Unrecognised value     : '//trim(instr)
            write(*,*)
            write(*,'(3X,A)') 'Please, choose between:  "NORMAL", "'//  & 
-                                                        'HL" or "HLSOL"'
+                                                        'HL" or "LLSOL"'
            write(*,'(2X,68("="))')
            write(*,*)
            call print_end()

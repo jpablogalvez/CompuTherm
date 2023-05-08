@@ -4,11 +4,11 @@
    .WFN
     COUNTERPOISE
    .TYPE
-    HLSOL
+    LLSOL
   *MOLECULE
    NConf = 1 Name = PhOH phase =ccl4
    .SCHEME
-    HLSOL
+    LLSOL
    .WFNSCHM
     SCF
    .SYMNUM

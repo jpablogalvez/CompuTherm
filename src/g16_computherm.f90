@@ -309,7 +309,7 @@
              if ( trim(mol(imol)%schm%fschm) .eq. 'HL' ) then
                call line_str(6,2,'Auxiliary input file name',lin,':',  &
                              trim(mol(imol)%conf(iconf)%auxinp(1)),lfin)
-             else if ( trim(mol(imol)%schm%fschm) .eq. 'HLSOL' ) then
+             else if ( trim(mol(imol)%schm%fschm) .eq. 'LLSOL' ) then
                call line_str(6,2,'Auxiliary input file name (sol)',    &
                      lin,':',trim(mol(imol)%conf(iconf)%auxinp(1)),lfin)
                call line_str(6,2,'Auxiliary input file name  (gas)',   &

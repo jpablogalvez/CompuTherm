@@ -84,7 +84,7 @@
 !
            close(uniinp+1)
 !
-         case ('HLSOL')
+         case ('LLSOL')
 !
            open(unit=uniinp+1,file=trim(auxinp(1)),action='read',      &
                 status='old',iostat=io)
@@ -102,6 +102,30 @@
 !
            close(uniinp+1)
            close(uniinp+2)
+!
+         case ('HLSOL')
+!
+           open(unit=uniinp+1,file=trim(auxinp(1)),action='read',      &
+                status='old',iostat=io)
+           if ( io .ne. 0 ) call print_missinp(auxinp(1))
+!
+           open(unit=uniinp+2,file=trim(auxinp(2)),action='read',      &
+                status='old',iostat=io)
+           if ( io .ne. 0 ) call print_missinp(auxinp(2))
+!
+           open(unit=uniinp+3,file=trim(auxinp(3)),action='read',      &
+                status='old',iostat=io)
+           if ( io .ne. 0 ) call print_missinp(auxinp(2))
+!
+           call read_energy(uniinp+1,auxinp(1),Escf,wfn)
+           call read_energy(uniinp+2,auxinp(2),Ell,wfn)
+           call read_energy(uniinp+3,auxinp(3),Ehl,schm%wfn)
+!
+           Escf = Escf - Ell + Ehl
+!
+           close(uniinp+1)
+           close(uniinp+2)
+           close(uniinp+3)
 !
        end select
 !
