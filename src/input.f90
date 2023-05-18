@@ -482,8 +482,15 @@
 !
        mol(imol)%nconf  = 1
        mol(imol)%npermu = 1
+!
        mol(imol)%wfn    = 'SCF'
        mol(imol)%readw  = .FALSE.
+!
+       allocate(mol(imol)%frag(1))
+       mol(imol)%frag(1) = 1
+       mol(imol)%nfrag   = 1
+!
+       mol(imol)%conc    = 1.0d0
 !
        mol(imol)%schm%wfn   = schm%wfn
        mol(imol)%schm%fschm = schm%fschm
@@ -544,10 +551,6 @@
        allocate(mol(imol)%conf(mol(imol)%nconf))
 !
 ! Reading MOLECULE section options 
-!
-       allocate(mol(imol)%frag(1))
-       mol(imol)%frag(1) = 1
-       mol(imol)%nfrag   = 1
 !
        if ( mol(imol)%nconf .gt. 1 ) then
 !

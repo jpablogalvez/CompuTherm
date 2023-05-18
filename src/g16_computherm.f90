@@ -168,8 +168,8 @@
            end if
 !
            if ( (iline.eq.1) .or. (iline.eq.2) ) then
-             call line_dp(6,3,'Half width at half maximum (cm**-1)',   &
-                          lin,':','F12.4',hwhm,lfin)
+             call line_dp(6,2,'Half width at half maximum (cm**-1)',   &
+                          lin,':','F12.2',hwhm,lfin)
            else if ( iline .eq. 3 ) then
 !~              call line_dp(6,3,'Gaussian HWHM (cm**-1)',lin,':',        &  ! TODO: create ghwhm and lhwhm
 !~                           'F12.4',ghwhm,lfin) 
@@ -1654,7 +1654,6 @@
        real(kind=8)                               ::  x       !
        real(kind=8)                               ::  yconf   !
        real(kind=8)                               ::  dx      !
-       real(kind=8)                               ::  sig     !
        integer                                    ::  imol    !
        integer                                    ::  npts    !
        integer                                    ::  iconf   !

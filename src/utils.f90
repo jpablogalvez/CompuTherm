@@ -24,19 +24,23 @@
 !
        subroutine print_start()
 !
+       use version
+!
        implicit none
 !
        character(len=lencmd)  ::  cmd  !  Command executed
 !
        write(*,'(1X,A)') 'Starting program at '//fdate()//             &
-                         ' on '//print_host() 
-       write(*,*)  
+                         ' on '//print_host()
+       write(*,*)
 !
-       write(*,'(2X,A)') 'Executing version '//trim(version)
-       call get_command(cmd) 
+       call print_version()
+       write(*,*)
+!
+       call get_command(cmd)
        write(*,'(2X,A)') 'Command executed:'
        write(*,'(4X,A)') trim(cmd)
-       write(*,*)   
+       write(*,*)
 !
        return
        end subroutine print_start
@@ -850,7 +854,9 @@
 !
        fmt1 = '('//trim(straux)//'X,A,'
 !
-       lenmid = lenin - len(key) - blnk    ! FLAG: check if iaux is negative
+       lenmid = lenin - len(key) - blnk
+       lenmid = max(lenmid,1)
+!
        write(straux,*) lenmid
        straux = adjustl(straux)
 !
@@ -858,26 +864,28 @@
 !
        io = scan(sizedp,'.')
        if ( io .eq. 0 ) then 
-           write(*,*)
-           write(*,'(2X,68("="))')
-           write(*,'(3X,A)') 'ERROR:  Subroutine LINE_DP called in'//  &
-                                                             'correctly'
-           write(*,*) 
-           write(*,'(3X,A)') 'Error while printing information'
-           write(*,'(2X,68("="))')
-           write(*,*) 
-           call print_end() 
-      end if
+         write(*,*)
+         write(*,'(2X,68("="))')
+         write(*,'(3X,A)') 'ERROR:  Subroutine LINE_DP called inco'//  &
+                                                               'rrectly'
+         write(*,*) 
+         write(*,'(3X,A)') 'Error while printing information'
+         write(*,'(2X,68("="))')
+         write(*,*) 
+         call print_end() 
+       end if
 !
-      iaux = io - 2
-      write(straux,*) iaux
-      straux = adjustl(straux)
-      straux = '(I'//trim(straux)//')'
+       iaux = io - 2
+       write(straux,*) iaux
+       straux = adjustl(straux)
+       straux = '(I'//trim(straux)//')'
 !
-      read(sizedp(2:io-1),straux) iaux
-      iaux = lenfin - lenin - iaux - len(sep)  ! FLAG: check if iaux is negative
-      write(straux,*) iaux
-      straux = adjustl(straux)
+       read(sizedp(2:io-1),straux) iaux
+       iaux = lenfin - lenin - iaux - len(sep)
+       iaux = max(iaux,1)
+!
+       write(straux,*) iaux
+       straux = adjustl(straux)
 !
        fmt1 = trim(fmt1)//trim(straux)//'X,'//sizedp//')'
 !
@@ -919,7 +927,9 @@
 !
        fmt1 = '('//trim(straux)//'X,A,'
 !
-       lenmid = lenin - len(key) - blnk    ! FLAG: check if iaux is negative
+       lenmid = lenin - len(key) - blnk
+       lenmid = max(lenmid,1)
+
        write(straux,*) lenmid
        straux = adjustl(straux)
 !
@@ -944,7 +954,9 @@
        straux = '(I'//trim(straux)//')'
 !
        read(sizedp(2:io-1),straux) iaux
-       iaux = lenfin - lenin - ndim*iaux - len(sep) - ndim*vecblnk  ! FLAG: check if iaux is negative
+       iaux = lenfin - lenin - ndim*iaux - len(sep) - ndim*vecblnk
+       iaux = max(iaux,1)
+!
        write(straux,*) iaux
        straux = adjustl(straux)
 !
@@ -997,7 +1009,9 @@
 !
        fmt1 = '('//trim(straux)//'X,A,'
 !
-       lenmid = lenin - len(key) - blnk    ! FLAG: check if iaux is negative
+       lenmid = lenin - len(key) - blnk
+       lenmid = max(lenmid,1)
+!
        write(straux,*) lenmid
        straux = adjustl(straux)
 !
@@ -1005,7 +1019,9 @@
 !
 !
        read(sizeint(2:),*) iaux
-       iaux = lenfin - lenin - ndim*iaux - len(sep) - ndim*vecblnk  ! FLAG: check if iaux is negative
+       iaux = lenfin - lenin - ndim*iaux - len(sep) - ndim*vecblnk
+       iaux = max(iaux,1)
+!
        write(straux,*) iaux
        straux = adjustl(straux)
 !
@@ -1055,14 +1071,18 @@
 !
        fmt1 = '('//trim(straux)//'X,A,'
 !
-       lenmid = lenin - len(key) - blnk             ! FLAG: check if lenmid is negative
+       lenmid = lenin - len(key) - blnk
+       lenmid = max(lenmid,1)
+!
        write(straux,*) lenmid
        straux = adjustl(straux)
 !
        fmt1 = trim(fmt1)//trim(straux)//'X,("'//sep//'"),'
 !
        read(sizeint(2:),*) iaux
-       iaux = lenfin - lenin - iaux - len(sep)      ! FLAG: check if iaux is negative
+       iaux = lenfin - lenin - iaux - len(sep)
+       iaux = max(iaux,1)
+!
        write(straux,*) iaux
        straux = adjustl(straux)
 !
@@ -1101,13 +1121,17 @@
 !
        fmt1 = '('//trim(straux)//'X,A,'
 !
-       lenmid = lenin - len(key) - blnk                ! FLAG: check if iaux is negative
+       lenmid = lenin - len(key) - blnk
+       lenmid = max(lenmid,1)
+!
        write(straux,*) lenmid
        straux = adjustl(straux)
 !
        fmt1 = trim(fmt1)//trim(straux)//'X,("'//sep//'"),'
 !
-       iaux = lenfin - lenin - len(strval) - len(sep)      ! FLAG: check if iaux is negative
+       iaux = lenfin - lenin - len(strval) - len(sep)
+       iaux = max(iaux,1)
+!
        write(straux,*) iaux
        straux = adjustl(straux)
 !
@@ -1175,7 +1199,8 @@
 !
        fmt1 = '('//trim(straux)//'X,'
 !
-       iaux = floor(real(len(key))/len(sub))   ! FLAG: check when len(sub) gt 1
+       iaux = floor(real(len(key))/len(sub))   ! FIXME: check when len(sub) gt 1
+!
        write(straux,*) iaux
        straux = adjustl(straux)
 !
@@ -1228,7 +1253,9 @@
        fmt1 = '('//trim(straux1)//'X,'
 !
        read(sizeint(2:),*) iaux
-       iaux = iaux + blnk2 + floor(real(len(key))/len(sub))   ! FLAG: check if iaux is negative
+       iaux = iaux + blnk2 + floor(real(len(key))/len(sub))
+       iaux = max(iaux,1)
+!
        write(straux2,*) iaux
        straux2 = adjustl(straux2)
 !
@@ -1317,20 +1344,20 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)   ::  instr   !      
-       character(len=*),intent(out)  ::  outstr  !      
+       character(len=*),intent(inout)  ::  instr   !      
+       character(len=*),intent(out)    ::  outstr  !      
 !
 !
 !
-       outstr = uppercase(instr)
+       instr = uppercase(instr)
 !
-       select case (trim(outstr))
+       select case (trim(instr))
          case ('NORMAL')
            outstr = 'NORMAL'
-         case ('LLSOL','LLSOLVENT','LL-SOLVENT')
-           outstr = 'LLSOL'
          case ('HLSOL','HLSOLVENT','HL-SOLVENT')
            outstr = 'HLSOL'
+         case ('LLSOL','LLSOLVENT','LL-SOLVENT')
+           outstr = 'LLSOL'
          case ('HL','HIGH-LEVEL','HLGAS')
            outstr = 'HL'
          case default
