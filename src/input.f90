@@ -141,10 +141,11 @@
 !
 !======================================================================!
 !
-       subroutine read_inp(inp,nmol,mol,cutoff,fact,hwhm,iline,doir,   &
-                           ffree,fentha,fentro,forder,fcalc,fchck,     &
-                           fenan,fpermu,fsoln,nreac,reac,mconf,fscreen,&
-                           frota,rmsdmax,maemax,baemax,dsolv,msolv,schm)
+       subroutine read_inp(inp,nmol,mol,cutoff,fact,path,hwhm,iline,   &
+                           doir,ffree,fentha,fentro,forder,fcalc,      &
+                           fchck,fenan,fpermu,fsoln,nreac,reac,mconf,  &
+                           fscreen,frota,rmsdmax,maemax,baemax,dsolv,  &
+                           msolv,schm)
 !
        use datatypes
        use utils
@@ -165,6 +166,7 @@
        character(len=8),intent(out)                         ::  frota    !  Rotation method flag
        real(kind=8),intent(out)                             ::  cutoff   !  Cutoff frequency
        real(kind=8),intent(out)                             ::  fact     !  Frequencies scaling factor
+       real(kind=8),intent(out)                             ::  path     !  Path length
        real(kind=8),intent(out)                             ::  hwhm     !  Full width at half maximum
        real(kind=8),intent(out)                             ::  rmsdmax  !  Maximum value for RMSD
        real(kind=8),intent(out)                             ::  maemax   !  Maximum value for MAE
@@ -195,6 +197,7 @@
 !
        fact  = 1.0d0
        hwhm  = 1.0d0
+       path  = 1.0d0
        doir  = .FALSE.
        iline = 1      ! 1. Gaussian | 2. Lorentzian | 3. Pseudo-Voigt
 !
@@ -317,10 +320,10 @@
 !
              call findline(line,'blck','**PROPERTIES')
 !
-             call read_prop(line,'**PROPERTIES',cutoff,fact,hwhm,iline,&
-                            doir,ffree,fentha,fentro,forder,fcalc,     &
-                            fchck,fenan,fpermu,fsoln,fscreen,frota,    &
-                            rmsdmax,maemax,baemax,dsolv,msolv) 
+             call read_prop(line,'**PROPERTIES',cutoff,fact,path,hwhm, &
+                            iline,doir,ffree,fentha,fentro,forder,     &
+                            fcalc,fchck,fenan,fpermu,fsoln,fscreen,    &
+                            frota,rmsdmax,maemax,baemax,dsolv,msolv) 
 !      
            case ('**REACT','**REAC','**REACTOR')
 !~              write(*,*) 
@@ -807,7 +810,7 @@
 !
 !======================================================================!
 !
-       subroutine read_prop(key,blck,cutoff,fact,hwhm,iline,doir,      &
+       subroutine read_prop(key,blck,cutoff,fact,path,hwhm,iline,doir, &
                             ffree,fentha,fentro,forder,fcalc,fchck,    &
                             fenan,fpermu,fsoln,fscreen,frota,rmsdmax,  &
                             maemax,baemax,dsolv,msolv)
@@ -829,6 +832,7 @@
        character(len=8),intent(inout)        ::  frota    !  Rotation method flag
        real(kind=8),intent(inout)            ::  cutoff   !  Cutoff frequency
        real(kind=8),intent(inout)            ::  fact     !  Frequencies scaling factor
+       real(kind=8),intent(inout)            ::  path     !  Path length
        real(kind=8),intent(inout)            ::  hwhm     !  Half width at half maximum
        real(kind=8),intent(inout)            ::  rmsdmax  !  Maximum value for RMSD
        real(kind=8),intent(inout)            ::  maemax   !  Maximum value for MAE
@@ -883,7 +887,7 @@
 !
              call findline(key,'sect','*FREQ')
 !
-             call read_freq(key,'*FREQ',blck,fact,hwhm,iline,doir)
+             call read_freq(key,'*FREQ',blck,fact,path,hwhm,iline,doir)
 !
            case ('*SCREEN','*SCREENING')
 !
@@ -1028,7 +1032,7 @@
 !
 !======================================================================!
 !
-       subroutine read_freq(key,sect,blck,fact,hwhm,iline,doir)
+       subroutine read_freq(key,sect,blck,fact,path,hwhm,iline,doir)
 !
        use datatypes
        use utils
@@ -1041,6 +1045,7 @@
        character(len=*),intent(in)           ::  sect   !  Section name
        character(len=*),intent(in)           ::  blck   !  Block name
        real(kind=8),intent(inout)            ::  fact   !  Frequencies scaling factor
+       real(kind=8),intent(inout)            ::  path   !  Path length
        real(kind=8),intent(inout)            ::  hwhm   !  Full width at half maximum
        integer,intent(inout)                 ::  iline  !  Broadening function
        logical,intent(inout)                 ::  doir   !  IR calculation flag
@@ -1081,6 +1086,16 @@
 !~              write(*,*)
 !
              read(uniinp,*) fact    ! FLAG: check errors
+!
+             call findline(key,'sect',sect)
+             if ( key(1:1) .eq. '*' ) return
+!
+           case ('.PATH','.PATHLENGTH')
+!
+!~              write(*,*) '    Reading .PATH option'
+!~              write(*,*)
+!
+             read(uniinp,*) path    ! FLAG: check errors
 !
              call findline(key,'sect',sect)
              if ( key(1:1) .eq. '*' ) return

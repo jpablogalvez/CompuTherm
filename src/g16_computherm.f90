@@ -40,6 +40,7 @@
        real(kind=8)                             ::  volu     !  Volume (m**3)
        real(kind=8)                             ::  cutoff   !  Cutoff frequency
        real(kind=8)                             ::  fact     !  Frequencies scaling factor
+       real(kind=8)                             ::  path     !  Path length
        real(kind=8)                             ::  hwhm     !  Half width at half maximum
        real(kind=8)                             ::  rmsdmax  !  Maximum value for RMSD
        real(kind=8)                             ::  maemax   !  Maximum value for MAE
@@ -113,10 +114,10 @@
        write(*,'(8X,54("*"))')
        write(*,*)
 !
-       call read_inp(inp,nmol,mol,cutoff,fact,hwhm,iline,doir,ffree,   &
-                     fentha,fentro,forder,fcalc,fchck,fenan,fpermu,    &
-                     fsoln,nreac,reac,mconf,fscreen,frota,rmsdmax,     &
-                     maemax,baemax,dsolv,msolv,schm)
+       call read_inp(inp,nmol,mol,cutoff,fact,path,hwhm,iline,doir,    &
+                     ffree,fentha,fentro,forder,fcalc,fchck,fenan,     &
+                     fpermu,fsoln,nreac,reac,mconf,fscreen,frota,      &
+                     rmsdmax,maemax,baemax,dsolv,msolv,schm)
 !
        allocate(order(nmol,mconf))
        order(:,:) = -1
@@ -423,9 +424,9 @@
 !
          if ( doir ) then
            if ( iline .eq. 1 ) then
-             call irspec(outp,nmol,mol,hwhm,iline,gauss)
+             call irspec(outp,nmol,mol,hwhm,path,iline,gauss)
            else if ( iline .eq. 2 ) then
-             call irspec(outp,nmol,mol,hwhm,iline,lor)
+             call irspec(outp,nmol,mol,hwhm,path,iline,lor)
            end if
          end if
        end if
@@ -1625,7 +1626,7 @@
 !
 !======================================================================!
 !
-       subroutine irspec(outp,nmol,mol,hwhm,iline,fbroad)
+       subroutine irspec(outp,nmol,mol,hwhm,path,iline,fbroad)
 !
        use datatypes
        use utils,      only: uniout,lenout,leninp
@@ -1637,6 +1638,7 @@
        character(len=lenout),intent(in)           ::  outp    !  Output file name
        type(molecule),dimension(nmol),intent(in)  ::  mol     !  Molecules information
        real(kind=8),intent(inout)                 ::  hwhm    !  
+       real(kind=8),intent(in)                    ::  path    !  
        integer,intent(in)                         ::  nmol    !
        integer,intent(in)                         ::  iline   !
        real(kind=8),external                      ::  fbroad  ! 
@@ -1650,6 +1652,7 @@
        real(kind=8),dimension(:),allocatable      ::  ymol    !
        real(kind=8),dimension(:),allocatable      ::  ytot    !
        real(kind=8)                               ::  xin     !
+       real(kind=8)                               ::  test    !
        real(kind=8)                               ::  xfin    !
        real(kind=8)                               ::  x       !
        real(kind=8)                               ::  yconf   !
@@ -1682,6 +1685,11 @@
                                          trim(mol(imol)%molname)//'.dat'
          open(unit=uniout+2,file=trim(file2),action='write')
 !
+test = 0
+do iconf = 1, mol(imol)%nconf
+test = test + mol(imol)%conf(iconf)%weight
+end do
+write(*,*) 'TEST', test
          ymol(:) = 0.0d0
          do iconf = 1, mol(imol)%nconf
 !
@@ -1701,14 +1709,15 @@
              end do
 !
              if ( mol(imol)%readw ) then
-               yconf = yconf*mol(imol)%conc*mol(imol)%conf(iconf)%weight
+               yconf = yconf*mol(imol)%conc*path                       &
+                                           *mol(imol)%conf(iconf)%weight
              else
-               yconf = yconf*mol(imol)%conc                            &
+               yconf = yconf*mol(imol)%conc*path                       &
                                          *mol(imol)%conf(iconf)%nequi  &
                                          *mol(imol)%pop(iconf)
              end if
 !
-             write(uniout+3,*) xpts(i),yconf
+             write(uniout+3,*) xpts(i),100.0d0*10.0d0**(-yconf)
 !
              ymol(i) = ymol(i) + yconf
              ytot(i) = ytot(i) + yconf
@@ -1721,7 +1730,7 @@
          end do
 !
          do i = 1, npts
-           write(uniout+2,*) xpts(i),ymol(i)
+           write(uniout+2,*) xpts(i),100.0d0*10.0d0**(-ymol(i))
          end do
 !
          close(uniout+2)
@@ -1729,7 +1738,7 @@
        end do
 !
        do i = 1, npts
-         write(uniout+1,*) xpts(i),ytot(i)
+         write(uniout+1,*) xpts(i),100.0d0*10.0d0**(-ytot(i))
        end do
 !
        close(uniout+1)

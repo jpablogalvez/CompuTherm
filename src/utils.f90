@@ -801,8 +801,8 @@
 !~            atmass = 'B'
          case ( 6 )
            atmass = 12.0d0    ! Gaussian value
-!~          case ( 7 )
-!~            atmass = 'N'
+         case ( 7 )
+           atmass = 14.0030740 ! Gaussian value
          case ( 8 )
            atmass = 15.99491  ! Gaussian value
 !~          case ( 9 )
