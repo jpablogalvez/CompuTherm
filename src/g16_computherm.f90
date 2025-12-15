@@ -420,7 +420,7 @@
 !~        call print_titleint(6,3,'Information of molecular system',1,    &
 !~                            'I3',nmol,'-')
 !~        write(*,*)
-!~        call line_str(6,2,'Molecule name',lin,':',trim(mol(imol)%molname),lfin)
+!~        call line_str(6,2,'Molecule name',lin,':',trim(mol(nmol)%molname),lfin)
 !~        call line_dp(6,2,'Molecular mass (g/mol)',lin,':','F12.5',1.0078250,lfin)
 !~        call line_int(6,2,'Number of atoms',lin,':','I3',1,lfin)
 !~        call line_str(6,2,'Component phase',lin,':',trim(mol(imol)%phase),lfin)
@@ -484,13 +484,9 @@
          end if
        end if
 !
-!~          if ( doconf ) call conformations(temp,nmol,mol,mconf,order,   & ! FLAG: create order array first
-!~                                           forder,fcalc,fscreen,frota,  &         otherwise if doconf = FALSE
-!~                                           rmsdmax,maemax,baemax,outp,  &         the program might break
-!~                                           debug)
-       if ( doconf ) call conformations(temp,nmol,mol,mconf,order,     &
-                                        forder,fcalc,fscreen,frota,    &
-                                        rmsdmax,maemax,baemax,debug)
+       if ( doconf ) call conformations(temp,nmol,mol,mconf,order,     & ! FIXME: create order array first
+                                        forder,fcalc,fscreen,frota,    & !         otherwise if doconf = FALSE
+                                        rmsdmax,maemax,baemax,debug)     !         the program might break
 !
        if ( doequi ) call keq(temp,nmol,mol,mconf,order,nreac,         &
                               reac,fcalc,debug)
@@ -1067,7 +1063,7 @@
 !
        if ( (trim(fcalc).eq.'ALL') .or. (trim(fcalc).eq.'FREQ') ) then
          fmt1 = '(4X,I4,4X,A'//trim(fmt1)//',2X,F10.4,1X,F10.4,3X,'//  &
-                                               'F10.4,1X,F10.4,4X,F10.6)'
+                                              'F10.4,1X,F10.4,4X,F10.6)'
          fmt2 = '(2(1X,A10),'//trim(fmt2)//'X,2(1X,A10,3X,A10),1X,A)'
        else
          fmt1 = '(4X,I4,4X,A'//trim(fmt1)//',1X,3(1X,F10.4))'
@@ -2098,7 +2094,6 @@
            do i = 1, npts        ! Run over grid points
 !
              read(uniinp,*) x,yconf
-!write(*,*) x,yconf
 !
              if ( abs(x-xpts(i)) .gt. thr ) then
                write(*,*)
