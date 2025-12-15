@@ -43,6 +43,48 @@
 !
 !======================================================================!
 !
+       function eunits(x,ener,hwhm,fbroad) result(y)
+!
+       implicit none
+!
+! Input/Output variables
+!
+       real(kind=8),intent(in)  ::  x     !
+       real(kind=8),intent(in)  ::  ener  !
+       real(kind=8),intent(in)  ::  hwhm  !
+       real(kind=8)             ::  y     !
+!
+! Input subroutines
+!
+       real(kind=8),external    ::  fbroad  !
+!
+       y = x*fbroad(x-ener,hwhm)
+!
+       end function eunits
+!
+!======================================================================!
+!
+       function nmunits(x,ener,hwhm,fbroad) result(y)
+!
+       implicit none
+!
+! Input/Output variables
+!
+       real(kind=8),intent(in)  ::  x     !
+       real(kind=8),intent(in)  ::  ener  !
+       real(kind=8),intent(in)  ::  hwhm  !
+       real(kind=8)             ::  y     !
+!
+! Input subroutines
+!
+       real(kind=8),external    ::  fbroad  !
+!
+       y = (1.0E7/x)*fbroad(1.0E7*(1.0d0/x-1.0d0/ener),hwhm)
+!
+       end function nmunits
+!
+!======================================================================!
+!
        end module lineshape
 !
 !======================================================================!

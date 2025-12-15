@@ -125,6 +125,9 @@
 !
        if ( fsoln ) volu = 1.0E-3
 !~ write(*,*) 'GGAS', mol(nmol)%Gtot
+write(*,*) mol(nmol)%Gtot
+write(*,*) gprot
+write(*,*) 1.89*kcal2kJ
        if ( fsoln ) mol(nmol)%Gtot = mol(nmol)%Gtot  + gprot + 1.89*kcal2kJ*1000
        if ( fsoln ) mol(nmol)%conf(1)%G = mol(nmol)%Gtot
 !~ write(*,*) 'GPROT', mol(nmol)%Gtot,gprot
@@ -324,13 +327,13 @@
            end if
 !
            if ( uvvis%dospec ) then
-!~              if ( uvvis%iunits .eq. 2 ) then
-!~                mol(imol)%conf(iconf)%vener(:) =                        &  
-!~                       mol(imol)%conf(iconf)%vener(:)*cm2ev - uvvis%shift
-!~              else
+             if ( uvvis%iunits .eq. 2 ) then
                mol(imol)%conf(iconf)%vener(:) =                        &  
-                      mol(imol)%conf(iconf)%vener(:) + uvvis%shift*ev2cm
-!~              end if
+                      mol(imol)%conf(iconf)%vener(:)*cm2ev - uvvis%shift
+             else
+               mol(imol)%conf(iconf)%vener(:) =                        &  
+                      mol(imol)%conf(iconf)%vener(:) - uvvis%shift*ev2cm
+             end if
            end if
 !
            if ( trim(fcalc) .eq. 'ALL' ) then
@@ -487,17 +490,15 @@
 !~                                           forder,fcalc,fscreen,frota,  &         otherwise if doconf = FALSE
 !~                                           rmsdmax,maemax,baemax,outp,  &         the program might break
 !~                                           debug)
-
-       call conformations(temp,nmol,mol,mconf,order,     &  ! FIXME: after screening, if there are duplicates then
-                          forder,fcalc,fscreen,frota,    &  !         NCONF changes but repeated structures are not
-                          rmsdmax,maemax,baemax,debug)      !         removed from the set
-
-!~        if ( doconf ) call conformations(temp,nmol,mol,mconf,order,     &  ! FIXME: after screening, if there are duplicates then
-!~                                         forder,fcalc,fscreen,frota,    &  !         NCONF changes but repeated structures are not
-!~                                         rmsdmax,maemax,baemax,debug)      !         removed from the set
-!                                                                         !         need to export IDX array from conformations
-       if ( doequi ) call keq(temp,nmol,mol,mconf,order,nreac,         &  !         to keep the dictionary
+       if ( doconf ) call conformations(temp,nmol,mol,mconf,order,     &
+                                        forder,fcalc,fscreen,frota,    &
+                                        rmsdmax,maemax,baemax,debug)
+!
+       if ( doequi ) call keq(temp,nmol,mol,mconf,order,nreac,         &
                               reac,fcalc,debug)
+!
+path = 1.0d0
+       if ( dospec ) call extspec(outp,nmol,mol,path)
 !
        if ( ir%dospec ) then
          if ( ir%iline .eq. 1 ) then
@@ -508,15 +509,28 @@
        end if
 !
        if ( uvvis%dospec ) then
-         if ( uvvis%iline .eq. 1 ) then           ! Gaussian 
-           call uvvisspec(outp,nmol,mol,uvvis%hwhm,uvvis%path,uvvis%iline,gauss)
-         else if ( uvvis%iline .eq. 2 ) then      ! Lorentzian
-           call uvvisspec(outp,nmol,mol,uvvis%hwhm,uvvis%path,uvvis%iline,lor)
-         end if
-       end if
+         select case ( uvvis%iunits )
 !
-       path = 1.0d0
-       if ( dospec ) call extspec(outp,nmol,mol,path)
+           case(1,2)
+             if ( uvvis%iline .eq. 1 ) then           ! Gaussian in cm**-1 or eV
+               call uvvisspec(outp,nmol,mol,uvvis%hwhm,uvvis%path,     &
+                              uvvis%iline,uvvis%iunits,eunits,gauss)
+             else if ( uvvis%iline .eq. 2 ) then      ! Lorentzian in cm**-1 or eV
+               call uvvisspec(outp,nmol,mol,uvvis%hwhm,uvvis%path,     &
+                              uvvis%iline,uvvis%iunits,eunits,lor)
+             end if
+!
+           case(3)
+             if ( uvvis%iline .eq. 1 ) then           ! Gaussian in nm
+               call uvvisspec(outp,nmol,mol,uvvis%hwhm,uvvis%path,     &
+                              uvvis%iline,uvvis%iunits,nmunits,gauss)
+             else if ( uvvis%iline .eq. 2 ) then      ! Lorentzian in nm
+               call uvvisspec(outp,nmol,mol,uvvis%hwhm,uvvis%path,     &
+                              uvvis%iline,uvvis%iunits,nmunits,lor)
+             end if
+!
+         end select
+       end if
 !
 ! Deallocating memory
 !
@@ -1818,7 +1832,7 @@
          end do
 !
          do i = 1, npts
-           write(uniout+2,*) xpts(i),100.0d0*10.0d0**(-ymol(i))
+           write(uniout+2,*) xpts(i),ymol(i)
          end do
 !
          close(uniout+2)
@@ -1826,7 +1840,7 @@
        end do
 !
        do i = 1, npts
-         write(uniout+1,*) xpts(i),100.0d0*10.0d0**(-ytot(i))
+         write(uniout+1,*) xpts(i),ytot(i)
        end do
 !
        close(uniout+1)
@@ -1838,7 +1852,7 @@
 !
 !======================================================================!
 !
-       subroutine uvvisspec(outp,nmol,mol,hwhm,path,iline,fbroad)
+       subroutine uvvisspec(outp,nmol,mol,hwhm,path,iline,iunits,funits,fbroad)
 !
        use datatypes
        use parameters
@@ -1854,10 +1868,12 @@
        real(kind=8),intent(in)                    ::  path    !
        integer,intent(in)                         ::  nmol    !
        integer,intent(in)                         ::  iline   !
+       integer,intent(in)                         ::  iunits  !
 !
 ! Input subroutines
 !
        real(kind=8),external                      ::  fbroad  !
+       real(kind=8),external                      ::  funits  !
 !
 ! Local variables
 !
@@ -1879,11 +1895,29 @@
 !
 ! Printing UV-vis spectrum
 !
-       xin  = 200.0d0
-       xfin = 800.0d0
-       dx   = 0.1d0
+       if ( iunits .eq. 1 ) then       ! cm**-1
 !
-       hwhm = hwhm*eV2cm
+         xin  = 1.0E7/800.0d0
+         xfin = 1.0E7/200.0d0
+         dx   = 1.0d0
+!
+         hwhm = hwhm*eV2cm
+!
+       else if ( iunits .eq. 2 ) then  ! eV
+!
+         xin  = 1.0E7/800.0d0*cm2ev
+         xfin = 1.0E7/200.0d0*cm2ev
+         dx   = 0.001d0
+!
+       else                            ! nm
+!
+         xin  = 200.0d0
+         xfin = 800.0d0
+         dx   = 0.1d0
+!
+         hwhm = hwhm*eV2cm
+!
+       end if 
 !
        npts = int((xfin - xin)/dx) + 1
        dx = (xfin - xin)/(npts - 1)
@@ -1910,43 +1944,23 @@
                   (:len_trim(mol(imol)%conf(iconf)%inp)-4)//'_uvvis.dat'
            open(unit=uniout+3,file=trim(file3),action='write')
 !
-!~ write(*,*) 'uvvis',mol(imol)%conf(iconf)%vener(:mol(imol)%conf(iconf)%nband)
-!~ write(*,*) 'tdip',mol(imol)%conf(iconf)%tdip(:mol(imol)%conf(iconf)%nband)
-!~ write(*,*) Aabs
            x = xin
            do i = 1, npts                       ! Run over grid points
              xpts(i) = x
 !
              yconf = 0.0d0
              do  j = 1, mol(imol)%conf(iconf)%nband   ! Run over excited states of each conformer
-             
-!~                yconf = yconf + mol(imol)%conf(iconf)%inten(j)*x        &
-!~                            *fbroad(x-mol(imol)%conf(iconf)%freq(j),hwhm)
                yconf = yconf + Aabs*mol(imol)%conf(iconf)%tdip(j)*     &
-                    (1.0E7/x)*fbroad(1.0E7/x-mol(imol)%conf(iconf)%vener(j),hwhm)
-!~ write(*,*) x,mol(imol)%conf(iconf)%nband,Aabs,mol(imol)%conf(iconf)%tdip(j),     &
-!~                     (1.0E7/x),fbroad(1.0E7/x-mol(imol)%conf(iconf)%vener(j),hwhm), &
-!~ Aabs*mol(imol)%conf(iconf)%tdip(j)*     &
-!~                     (1.0E7/x)*fbroad(1.0E7/x-mol(imol)%conf(iconf)%vener(j),hwhm)
-!~ write(*,*)  real(Aabs),mol(imol)%conf(iconf)%tdip(j), &
-!~ (1.0E7/x)*fbroad(1.0E7*(1.0/x-1.0/mol(imol)%conf(iconf)%vener(j)),hwhm)
-!~ write(*,*)  x,(1.0E7/x),1.0E7*(1.0/x-1.0/mol(imol)%conf(iconf)%vener(j)), &
-!~ hwhm,fbroad(1.0E7*(1.0/x-1.0/mol(imol)%conf(iconf)%vener(j)),hwhm)
-!~ !write(*,*) mol(imol)%conf(iconf)%vener(:mol(imol)%conf(iconf)%nband)
-!~ !write(*,*)  x,(1.0E7/x),1.0E7*(1.0/x),1.0E7*(1.0/mol(imol)%conf(iconf)%vener(j)), &
-!~     !1.0E7*(1.0/x-1.0/mol(imol)%conf(iconf)%vener(j)),hwhm
+                    funits(x,mol(imol)%conf(iconf)%vener(j),hwhm,fbroad)
              end do
 !
              if ( mol(imol)%readw ) then
                yconf = yconf*mol(imol)%conc*path                       &
                                            *mol(imol)%conf(iconf)%weight
              else
-!~ write(*,*) x, yconf
                yconf = yconf*mol(imol)%conc*path                       &
                                          *mol(imol)%conf(iconf)%nequi  &
                                          *mol(imol)%pop(iconf)
-!~ write(*,*) x, yconf,path,mol(imol)%conf(iconf)%nequi,mol(imol)%pop(iconf)
-!~ write(*,*) 
              end if
 !
              write(uniout+3,*) xpts(i),yconf
@@ -2086,6 +2100,7 @@
            do i = 1, npts        ! Run over grid points
 !
              read(uniinp,*) x,yconf
+!write(*,*) x,yconf
 !
              if ( abs(x-xpts(i)) .gt. thr ) then
                write(*,*)
