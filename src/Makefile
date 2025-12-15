@@ -40,11 +40,9 @@ dir_guard=@mkdir -p $(@D)
 
 default: $(MODOBJ) $(OBJ)
 	@mkdir -p $(BDIR)
+	@./get_git_version.sh
 	$(FC) $(MODOBJ) $(OBJ) -o $(BDIR)/$(PROGRAM) $(libpath)
 
-version.f90:
-	@./get_git_version.sh
-	
 # Compiler steps for all objects
 $(ODIR)/%.o: %.F90
 	@mkdir -p $(MDIR)
