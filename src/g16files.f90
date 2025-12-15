@@ -29,22 +29,22 @@
 ! Input/output variables
 !
        type(scheme),intent(in)                      ::  schm    !
-       character(len=*),intent(in)                  ::  inp     ! 
-       character(len=*),dimension(:),intent(in)     ::  auxinp  ! 
+       character(len=*),intent(in)                  ::  inp     !
+       character(len=*),dimension(:),intent(in)     ::  auxinp  !
        character(len=*),intent(in)                  ::  wfn     !  Wavefunction information
        character(len=8),intent(in)                  ::  fcalc   !  Calculation information flag
        character(len=5),dimension(nat),intent(out)  ::  atname  !  Atom names
        real(kind=8),dimension(3,nat),intent(out)    ::  coord   !
        real(kind=8),dimension(nat),intent(out)      ::  atmass  !  Atomic masses
-       real(kind=8),dimension(dof),intent(out)      ::  freq    !  
-       real(kind=8),dimension(dof),intent(out)      ::  inten   !  
-       real(kind=8),dimension(3),intent(out)        ::  moment  !  
+       real(kind=8),dimension(dof),intent(out)      ::  freq    !
+       real(kind=8),dimension(dof),intent(out)      ::  inten   !
+       real(kind=8),dimension(3),intent(out)        ::  moment  !
        real(kind=8),intent(out)                     ::  Escf    !
        real(kind=8),intent(out)                     ::  mass    !  Molecule mass
-       real(kind=8),intent(out)                     ::  eldeg   !  
+       real(kind=8),intent(out)                     ::  eldeg   !
        integer,dimension(nat),intent(out)           ::  znum    !  Atomic number
        integer,intent(in)                           ::  nat     !  Number of atoms
-       integer,intent(in)                           ::  dof     !  
+       integer,intent(in)                           ::  dof     !
 !
 ! Local variables
 !
@@ -137,7 +137,8 @@
 !
 ! Computing the principal moments of inertia
 !
-       call inertia_moments(nat,coord*ang2au,atmass,axes,moment)
+       coord = coord*ang2au
+       call inertia_moments(nat,coord,atmass,axes,moment)
 !
        if ( (trim(fcalc).eq.'EONLY') .or. (trim(fcalc).eq.'OPT') ) then
          close(uniinp)
@@ -186,7 +187,7 @@
        if ( io .ne. 0 ) then
          call print_missinp(inp)
        end if
-! 
+!
 ! Reading number of atoms !   TODO: linear molecules not considered
 !
        call find_key('NAtoms=',line,io)
@@ -224,7 +225,7 @@
 !
            call chk_imagi(inp)
 !
-         case default        
+         case default
 
        end select
 !
@@ -275,7 +276,7 @@
        integer                             ::  keylen  !  Keyword length
        integer                             ::  io      !  Input/Output status
 !
-! Finding the first line starting with the specified keyword 
+! Finding the first line starting with the specified keyword
 !
        keylen = len(key)
        iost   = 0
@@ -311,7 +312,7 @@
        integer                             ::  keylen  !  Keyword length
        integer                             ::  io      !  Input/Output status
 !
-! Finding the last line starting with the specified keyword 
+! Finding the last line starting with the specified keyword
 !
        keylen = len_trim(key)
        iost   = 1
@@ -321,7 +322,7 @@
          if ( io /= 0 ) exit
          straux = adjustl(straux)
          if ( straux(:keylen) .eq. trim(key) ) then
-           iost = 0 
+           iost = 0
            line = straux
          end if
        end do
@@ -338,12 +339,12 @@
 ! Input/output variables
 !
        real(kind=8),dimension(3,nat),intent(out)  ::  coord   !
-       integer,intent(in)                         ::  nat     ! 
+       integer,intent(in)                         ::  nat     !
        integer,intent(out)                        ::  iost    !  Reading status
 !
 ! Local variables
 !
-       character(len=leninp)                      ::  key     !  
+       character(len=leninp)                      ::  key     !
        character(len=lenline)                     ::  line    !  Line read
        integer                                    ::  keylen  !  Keyword length
        integer                                    ::  iat     !
@@ -360,7 +361,7 @@
          if ( io /= 0 ) exit
          line = adjustl(line)
          if ( line(:keylen) .eq. trim(key) ) then
-           iost = 0 
+           iost = 0
 !
            read(uniinp,*) line
            read(uniinp,*) line
@@ -402,7 +403,7 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)  ::  inp     ! 
+       character(len=*),intent(in)  ::  inp     !
 !
 ! Local variables
 !
@@ -423,7 +424,7 @@
          write(*,*)
          write(*,'(4X,A)')       trim(inp)
          write(*,'(2X,68("="))')
-         write(*,*)  
+         write(*,*)
          call print_end()
        end if
 !
@@ -440,15 +441,14 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)  ::  inp     ! 
+       character(len=*),intent(in)  ::  inp     !
 !
 ! Local variables
 !
-       character(len=lenline)       ::  line    !  Line read
        integer                      ::  io      !  Input/Output status
 !
 ! Checking if the optimization therminated abnormally
-! 
+!
        io = 0
 !~        call find_key('-- Stationary point found',line,io)  ! FIXME: breaks if only frequency calculation
        if ( io .ne. 0 ) then
@@ -462,7 +462,7 @@
          write(*,*)
          write(*,'(4X,A)')       trim(inp)
          write(*,'(2X,68("="))')
-         write(*,*)  
+         write(*,*)
          call print_end()
        end if
 !
@@ -479,7 +479,7 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)  ::  inp     ! 
+       character(len=*),intent(in)  ::  inp     !
 !
 ! Local variables
 !
@@ -500,7 +500,7 @@
          write(*,*)
          write(*,'(4X,A)')       trim(inp)
          write(*,'(2X,68("="))')
-         write(*,*)  
+         write(*,*)
          call print_end()
        end if
 !
@@ -515,7 +515,7 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)  ::  inp     ! 
+       character(len=*),intent(in)  ::  inp     !
        character(len=*),intent(in)  ::  wfn     !  Wavefunction information
        real(kind=8),intent(out)     ::  Escf    !
        integer,intent(in)           ::  uni     !
@@ -571,7 +571,7 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)                ::  inp     ! 
+       character(len=*),intent(in)                ::  inp     !
        real(kind=8),dimension(3,nat),intent(out)  ::  coord   !
        integer,intent(in)                         ::  nat     !  Number of atoms
 !
@@ -595,10 +595,10 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)              ::  inp     ! 
-       real(kind=8),dimension(dof),intent(out)  ::  freq    !  
+       character(len=*),intent(in)              ::  inp     !
+       real(kind=8),dimension(dof),intent(out)  ::  freq    !
        real(kind=8),dimension(dof),intent(out)  ::  inten   !
-       integer,intent(in)                       ::  dof     !  
+       integer,intent(in)                       ::  dof     !
        integer,intent(in)                       ::  nat     !  Number of atoms
 !
 ! Local variables
@@ -644,8 +644,8 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)  ::  inp     ! 
-       real(kind=8),intent(out)     ::  eldeg   !  
+       character(len=*),intent(in)  ::  inp     !
+       real(kind=8),intent(out)     ::  eldeg   !
 !
 ! Local variables
 !
@@ -676,7 +676,7 @@
 !
 ! Input/output variables
 !
-       character(len=*),intent(in)                  ::  inp     ! 
+       character(len=*),intent(in)                  ::  inp     !
        integer,intent(in)                           ::  nat     !  Number of atoms
        character(len=5),dimension(nat),intent(out)  ::  atname  !  Atom names
        real(kind=8),dimension(nat),intent(out)      ::  atmass  !  Atomic masses
@@ -719,8 +719,8 @@
        mass = 0.0d0
 !
        do iat = 1, nat
-         call znum2atname(znum(iat),atname(iat))           
-         call znum2atmass(znum(iat),atmass(iat))  
+         call znum2atname(znum(iat),atname(iat))
+         call znum2atmass(znum(iat),atmass(iat))
          mass = mass + atmass(iat)
        end do
 !

@@ -760,6 +760,8 @@
            atname = 'F'
          case ( 10 )
            atname = 'Ne'
+         case ( 16 )
+           atname = 'S'
          case ( 17 )
            atname = 'Cl'
          case ( 18 )
@@ -790,7 +792,7 @@
 !
        select case ( znum )
          case ( 1 )
-           atmass = 1.00783   ! Gaussian value
+           atmass = 1.0078250   ! Gaussian value
 !~          case ( 2 )
 !~            atmass = 'He'
 !~          case ( 3 )
@@ -804,19 +806,23 @@
          case ( 7 )
            atmass = 14.0030740 ! Gaussian value
          case ( 8 )
-           atmass = 15.99491  ! Gaussian value
+           atmass = 15.9949146  ! Gaussian value
 !~          case ( 9 )
 !~            atmass = 'F'
 !~          case ( 10 )
 !~            atmass = 'Ne'
+         case ( 16 )
+           atmass = 31.9720718
 !~          case ( 17 )
 !~            atmass = 'Cl'
 !~          case ( 18 )
 !~            atmass = 'Ar'
+!~          case ( 32 )
+!~            atmass = 'Ar'
 !~          case ( 36 )
 !~            atmass = 'Kr'
          case default
-           write(*,*) znum, 'Not yet!'
+           write(*,*) znum, 'ZNum value not yet!'
            write(*,*) 
            call print_end()
        end select
@@ -1393,6 +1399,8 @@
        select case (trim(str))
          case ('SCF','DFT','HF','UHF','RHF')
            str = 'SCF'
+         case ('CC','CCSD','CCSDT') !TODO: select between ccsd, ccsdt, 
+           str = 'CC'
          case ('EXT','EXTERNAL')
            str = 'EXTERNAL'
          case ('CP','CPC','COUNTERPOISE')
@@ -1403,8 +1411,8 @@
            write(*,*)
            write(*,'(3X,A)') 'Unrecognised value     : '//trim(str)
            write(*,*)
-           write(*,'(3X,A)') 'Please, choose between:  "SCF", "EXT'//  &
-                                              'ERNAL" or "COUNTERPOISE"'
+           write(*,'(3X,A)') 'Please, choose between:  "SCF", "CC"'//  &
+                                        ', "EXTERNAL" or "COUNTERPOISE"'
            write(*,'(2X,68("="))')
            write(*,*)
            call print_end()
@@ -1412,6 +1420,91 @@
 !
        return
        end subroutine select_wfn
+!
+!======================================================================!
+!
+       subroutine chk_qmout(inp,lab)
+!
+       implicit none
+!
+! Input/output variables
+!
+       character(len=leninp),intent(in)   ::  inp   !  Input file name
+       character(len=lename),intent(out)  ::  lab   !
+!
+! Local variables
+!
+       character(len=lenline)            ::  line  !
+       integer                           ::  posi  !
+       integer                           ::  io    !
+!
+! Reading information from QM output file
+!
+       open(unit=uniinp,file=trim(inp),action='read',                  &
+            status='old',iostat=io)
+!
+       if ( io .ne. 0 ) call print_missinp(inp)
+!
+! Checking if QM output comes from a Gaussian16 calculation
+!
+!   Find the first non-blank line
+       do
+         read(uniinp,'(A)',iostat=io) line
+         if ( len_trim(line) == 0 ) then
+           cycle
+         else
+           line = adjustl(line)
+           if ( line(:5) .ne. 'nohup' ) exit
+         end if
+       end do
+!
+       posi = scan(line,',')
+       line = line(:posi-1)
+       line = adjustl(line)
+!
+       if ( trim(line) .eq. 'Entering Gaussian System' ) then
+         lab = 'g16'  
+         close(uniinp)  
+         return    
+       end if
+!
+! Checking if QM output comes from a ORCA calculation
+!
+       rewind (uniinp)
+!   Find the first non-blank line
+       do
+         read(uniinp,'(A)',iostat=io) line
+         if ( len_trim(line) == 0 ) then
+           cycle
+         else
+           line = adjustl(line)
+           if ( line(:5) .ne. 'nohup' ) exit
+         end if
+       end do
+!
+       read(uniinp,'(A)') line
+       line = adjustl(line)
+!
+       if ( trim(line) .eq. '* O   R   C   A *' ) then
+         lab = 'orca'
+         close(uniinp)  
+         return    
+       end if
+!
+! Error check
+!
+       write(*,*)
+       write(*,'(2X,68("="))')
+       write(*,'(3X,A)') 'ERROR:  Format of QM output not supported'
+       write(*,*)
+       write(*,'(3X,A)') 'Input file '//trim(inp)//' comes from an'//  &
+                                                  ' unknown QM software'
+       write(*,'(2X,68("="))')
+       write(*,*)
+       call print_end()       
+!
+       return
+       end subroutine chk_qmout
 !
 !======================================================================!
 !

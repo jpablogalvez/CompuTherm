@@ -23,6 +23,7 @@ SRCMOD  = parameters.f90   \
           geometry.f90     \
           datatypes.f90    \
           g16files.f90     \
+	  orcafiles.f90    \
           input.f90        \
           statmech.f90     \
           superpose.f90    \

@@ -21,17 +21,26 @@
 !
 ! Declaration of the in/out variables
 !
-       real(kind=8),dimension(3,nat),intent(in)  ::  coord   !  Coordinates
-       real(kind=8),dimension(nat),intent(in)    ::  mass    !  Masses
-       real(kind=8),dimension(3,3),intent(out)   ::  axes    !  Principal axes
-       real(kind=8),dimension(3),intent(out)     ::  moment  !  Principal moments of inertia
-       integer,intent(in)                        ::  nat     !  Number of atoms
+       real(kind=8),dimension(3,nat),intent(inout)  ::  coord   !  Coordinates
+       real(kind=8),dimension(nat),intent(in)       ::  mass    !  Masses
+       real(kind=8),dimension(3,3),intent(out)      ::  axes    !  Principal axes
+       real(kind=8),dimension(3),intent(out)        ::  moment  !  Principal moments of inertia
+       integer,intent(in)                           ::  nat     !  Number of atoms
 !
 ! Declaration of the local variables
 !
-       real(kind=8),dimension(3,3)               ::  tensor  !  Inertia tensor
-       real(kind=8)                              ::  cum     !  Element of the inertia tensor
-       integer                                   ::  i,j     !  Indexes
+       real(kind=8),dimension(3,3)                  ::  tensor  !  Inertia tensor
+       real(kind=8),dimension(3)                    ::  com     !  Center of mass vector
+       real(kind=8)                                 ::  cum     !  Element of the inertia tensor
+       integer                                      ::  i,j     !  Indexes
+!
+! Translating the molecule to the center of mass
+!
+       com = dcomvec(nat,coord,mass)
+!
+       do i = 1, nat
+         coord(:,i) = coord(:,i) - com(:)
+       end do
 !
 ! Calculating the principal moments of inertia
 !
@@ -87,6 +96,47 @@
 ! 
        return
        end subroutine inertia_ij
+!
+!======================================================================!
+!
+! DCOMVEC - Double precision Center Of Mass VECtor
+!
+! This function returns the Center of Mass of a molecule
+!
+       function dcomvec(nat,coord,mass) result(com)
+!
+       implicit none
+!
+! Declaration of the in/out variables
+!
+       real(kind=8),dimension(3,nat),intent(in)  ::  coord  !  Coordinates
+       real(kind=8),dimension(nat),intent(in)    ::  mass   !  Masses
+       real(kind=8), dimension(3)                ::  com    !  Center of Mass vector
+       integer,intent(in)                        ::  nat    !  Number of atoms
+!
+! Declaration of the local variables
+!
+       real(kind=8)                              ::  totm   ! Total mass
+       integer                                   ::  i,j    ! Indexes
+!
+! Calculating the center of mass
+!
+       totm = 0.0d0
+       do i = 1, nat
+         totm = totm + mass(i)
+       end do
+!
+       com(:) = 0.0d0
+       do i = 1, nat
+         do j = 1, 3
+           com(j) = com(j) + mass(i)*coord(j,i)
+         end do
+       end do
+!
+       com(:) = com(:) / totm
+!
+       return
+       end function dcomvec
 !
 !======================================================================!
 !

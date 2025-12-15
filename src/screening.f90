@@ -11,13 +11,12 @@
 !
 !======================================================================!
 !
-       subroutine screen(outp,mol,nfrag,frota,rmsdmax,maemax,baemax,   &
+       subroutine screen(mol,nfrag,frota,rmsdmax,maemax,baemax,        &
                          idx,debug)
 !
        use datatypes
        use mathtools
-       use utils,      only: lenout,uniout,                            &
-                             line_str,                                 &
+       use utils,      only: line_str,                                 &
                              line_int,                                 &
                              line_dp,                                  &
                              line_dvec,                                &
@@ -31,7 +30,6 @@
 ! Input/Output variables
 !
        type(molecule),intent(inout)              ::  mol       !  Molecules information
-       character(len=lenout),intent(in)          ::  outp      !  Output file name
        character(len=8),intent(in)               ::  frota     !  Rotation method flag
        real(kind=8),intent(in)                   ::  rmsdmax   !  Maximum value for RMSD
        real(kind=8),intent(in)                   ::  maemax    !  Maximum value for MAE

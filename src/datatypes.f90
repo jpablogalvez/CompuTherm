@@ -9,10 +9,16 @@
 !
        type thermo
          character(len=leninp)                           ::  inp      !  Input file name
+         character(len=leninp)                           ::  esinp    !  Excited state file name
+         character(len=leninp)                           ::  specinp  !  Excited state file name
+         character(len=lename)                           ::  qmout    !  
+         character(len=lename)                           ::  esout    !  
          character(len=leninp),dimension(:),allocatable  ::  auxinp   !  Auxiliary input file name
          real(kind=8),dimension(:,:),allocatable         ::  coord    !  Coordinates
          real(kind=8),dimension(:),allocatable           ::  freq     !  Frequencies
          real(kind=8),dimension(:),allocatable           ::  inten    !  IR Intensities
+         real(kind=8),dimension(:),allocatable           ::  vener    !  Vertical energies
+         real(kind=8),dimension(:),allocatable           ::  tdip     !  Transition dipole moments squared
          real(kind=8),dimension(3)                       ::  moment   !  Princial moments of inertia
          real(kind=8)                                    ::  Escf     !  Potential energy
          real(kind=8)                                    ::  ZPVE     !  Zero-point energy
@@ -39,6 +45,7 @@
          real(kind=8)                                    ::  Srot     !  Rotational contribution to Stherm
          real(kind=8)                                    ::  Svib     !  Vibrational contribution to Stherm
          real(kind=8)                                    ::  weight   !  IR weights
+         integer                                         ::  nband    !  Number of roots
          integer                                         ::  nequi    !  Number of equivalent conformations
          integer                                         ::  symnum   !  Symmetry number
          integer                                         ::  dof      !  Degrees of freedom 
@@ -75,6 +82,7 @@
          integer,dimension(:),allocatable                ::  frag     !  Number of indistinguishable fragments
          integer                                         ::  nfrag    !  Number of fragment types
          integer                                         ::  npermu   !  Number of fragment permutations
+         integer                                         ::  nrota    !  Number of monomer rotamers
          integer                                         ::  nat      !  Number of atoms
          integer                                         ::  nconf    !  Number of conformers
          logical                                         ::  readw    !
@@ -90,6 +98,16 @@
          real(kind=8)                                    ::  Keq      !  Equilibrium constant
          integer,dimension(:),allocatable                ::  nu       !  Stoichiometric coefficients
        end type reaction
+!
+       type spectra
+         real(kind=8)                                    ::  fact     !  Frequencies scaling factor
+         real(kind=8)                                    ::  shift    !  Energy shift
+         real(kind=8)                                    ::  path     !  Optical path
+         real(kind=8)                                    ::  hwhm     !  Full width at half maximum
+         integer                                         ::  iline    !  Broadening function
+         integer                                         ::  iunits   !  Transition units
+         logical                                         ::  dospec   !  Spectrum csalculation flag
+       end type spectra
 !
 ! TODO: create datatype for component phase with: name, density, molecular weight
 !
