@@ -1074,7 +1074,8 @@
 !~              write(*,*) '    Reading .SYMNUM option'
 !~              write(*,*)
 !
-             read(uniinp,*) mol(imol)%conf(:mol(imol)%nconf-1)%symnum   ! FLAG: check if bad introduced
+             read(uniinp,*) mol(imol)%conf(:)%symnum
+             !read(uniinp,*) mol(imol)%conf(:mol(imol)%nconf-1)%symnum   ! FLAG: check if bad introduced
 !
              call findline(key,'sect',sect)
              if ( key(1:1) .eq. '*' ) GOTO 1000   ! FLAG: check exit

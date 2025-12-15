@@ -348,6 +348,7 @@
 !
            if ( fpermu ) then
              mol(imol)%conf(iconf)%nequi = mol(imol)%npermu
+             mol(imol)%conf(iconf)%nequi = 2*mol(imol)%frag(1)*mol(imol)%npermu ! Rotamers
            end if
 !
            if ( fenan ) then
