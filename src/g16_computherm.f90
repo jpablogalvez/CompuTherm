@@ -124,13 +124,9 @@
        order(:,:) = -1
 !
        if ( fsoln ) volu = 1.0E-3
-!~ write(*,*) 'GGAS', mol(nmol)%Gtot
-write(*,*) mol(nmol)%Gtot
-write(*,*) gprot
-write(*,*) 1.89*kcal2kJ
-       if ( fsoln ) mol(nmol)%Gtot = mol(nmol)%Gtot  + gprot + 1.89*kcal2kJ*1000
+       if ( fsoln ) mol(nmol)%Gtot = mol(nmol)%Gtot  + gprot + 1.89*kcal2kJ*1000 ! TODO: correct proton entropy
+!       if ( fsolv ) mol(nmol)%Gtot = mol(nmol)%Gtot  + ! TODO: move to molarity scale
        if ( fsoln ) mol(nmol)%conf(1)%G = mol(nmol)%Gtot
-!~ write(*,*) 'GPROT', mol(nmol)%Gtot,gprot
 !
 ! Printing summary of the general input file information
 !
@@ -251,6 +247,7 @@ write(*,*) 1.89*kcal2kJ
                           'F12.4',dsolv,lfin)
              call line_dp(6,4,'Solvent molecular mass (g/mol)',lin,    &
                           ':','F12.4',msolv,lfin)
+             write(*,*)
            end if
        end if
 !
@@ -442,7 +439,7 @@ write(*,*) 1.89*kcal2kJ
          call print_thermo(temp,nmol,mol,ffree,fentha,fentro,cutoff,   &
                            fsolv,dsolv,msolv,debug)
        else if ( trim(fcalc) .ne. 'FREQ' ) then
-         do imol = 1, nmol - 1
+         do imol = 1, nmol-1
            do iconf = 1, mol(imol)%nconf
              mol(imol)%conf(iconf)%Escf = mol(imol)%conf(iconf)%Escf   &
                                                              *au2kJ*1000
@@ -497,7 +494,7 @@ write(*,*) 1.89*kcal2kJ
        if ( doequi ) call keq(temp,nmol,mol,mconf,order,nreac,         &
                               reac,fcalc,debug)
 !
-path = 1.0d0
+       path = 1.0d0
        if ( dospec ) call extspec(outp,nmol,mol,path)
 !
        if ( ir%dospec ) then

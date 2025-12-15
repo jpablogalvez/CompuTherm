@@ -483,10 +483,6 @@
        mol(nmol)%conf(1)%H    = 5.0d0/2.0d0*Rjul*298.15
        mol(nmol)%conf(1)%S    = 7.76/298.15*1000.0d0*kcal2kJ
        mol(nmol)%conf(1)%G    = mol(nmol)%conf(1)%H - 7.76*1000.0d0*kcal2kJ
-!~ write(*,*) 'gprot',gprot/1000.d0,gprot/1000.d0/kcal2kJ
-!~ write(*,*) 'H',mol(nmol)%Htot/1000.0d0,mol(nmol)%Htot/1000.0d0/kcal2kJ
-!~ write(*,*) 'TS',mol(nmol)%Stot*298.15/1000.0d0,mol(nmol)%Stot*298.15/1000.0d0/kcal2kJ
-!~ write(*,*) 'G',mol(nmol)%Gtot/1000.0d0,mol(nmol)%Gtot/1000.0d0/kcal2kJ
 !
 ! Reading input file blocks
 !
