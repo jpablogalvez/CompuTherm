@@ -125,7 +125,7 @@
 !
        if ( fsoln ) volu = 1.0E-3
        if ( fsoln ) mol(nmol)%Gtot = mol(nmol)%Gtot  + gprot + 1.89*kcal2kJ*1000 ! TODO: correct proton entropy
-!       if ( fsolv ) mol(nmol)%Gtot = mol(nmol)%Gtot  + ! TODO: move to molarity scale
+!       if ( fsolv ) mol(nmol)%Gtot = mol(nmol)%Gtot  +  ...                     ! TODO: move to molarity scale
        if ( fsoln ) mol(nmol)%conf(1)%G = mol(nmol)%Gtot
 !
 ! Printing summary of the general input file information
