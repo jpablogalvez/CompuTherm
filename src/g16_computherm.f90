@@ -123,7 +123,6 @@
        allocate(order(nmol,mconf))
        order(:,:) = -1
 !
-       if ( fsoln ) volu = 1.0E-3
        if ( fsoln ) mol(nmol)%Gtot = mol(nmol)%Gtot  + gprot + 1.89*kcal2kJ*1000 ! TODO: correct proton entropy
 !       if ( fsolv ) mol(nmol)%Gtot = mol(nmol)%Gtot  + ! TODO: move to molarity scale
        if ( fsoln ) mol(nmol)%conf(1)%G = mol(nmol)%Gtot
@@ -236,8 +235,12 @@
          write(*,'(2X,A)') 'Standard state'
          call line_dp(6,3,'Temperature (K)',lin,':','F12.4',temp,lfin)
          call line_dp(6,3,'Pressure (atm)',lin,':','F12.4',pres,lfin)
-         call line_dp(6,3,'Volume (L)',lin,':','F12.4',volu*1000.0d0,  &
-                      lfin)
+         if ( fsoln ) then
+           call line_dp(6,3,'Volume (L)',lin,':','F12.4',1.0d0,lfin)
+         else
+           call line_dp(6,3,'Volume (L)',lin,':','F12.4',              &
+                        volu*1000.0d0,lfin)
+         end if
          call line_log(6,3,'Standard state 1M',lin,':',fsoln,lfin)
          call line_log(6,3,'Reference state in molarity scale',lin,    &
                        ':',fsolv,lfin)
@@ -437,7 +440,7 @@
          end if
 !
          call print_thermo(temp,nmol,mol,ffree,fentha,fentro,cutoff,   &
-                           fsolv,dsolv,msolv,debug)
+                           fsoln,fsolv,dsolv,msolv,debug)
        else if ( trim(fcalc) .ne. 'FREQ' ) then
          do imol = 1, nmol-1
            do iconf = 1, mol(imol)%nconf
@@ -718,7 +721,7 @@
 !======================================================================!
 !
        subroutine print_thermo(temp,nmol,mol,ffree,fentha,fentro,      &
-                               cutoff,fsolv,dsolv,msolv,debug)
+                               cutoff,fsoln,fsolv,dsolv,msolv,debug)
 !
        use utils,      only:  print_titleint
        use parameters
@@ -739,6 +742,7 @@
        character(len=8),intent(in)                   ::  fentro  !  Entropy calculation flag
        integer,intent(in)                            ::  nmol    !  Number of chemical species
        logical,intent(in)                            ::  fsolv   !  Reference state flag
+       logical,intent(in)                            ::  fsoln   !  Standard state flag
        logical,intent(in)                            ::  debug   !  Debug mode
 !
 ! Local variables
@@ -983,8 +987,15 @@
            if ( fsolv ) then
              mol(imol)%conf(iconf)%G = mol(imol)%conf(iconf)%G         &
                                     + Rjul*temp*dlog(msolv/1000.0/dsolv)
-             mol(imol)%conf(iconf)%S = mol(imol)%conf(iconf)%S         &
-                                         - Rjul*dlog(msolv/1000.0/dsolv)
+             mol(imol)%conf(iconf)%H = mol(imol)%conf(iconf)%H         &
+                                    + Rjul*temp*dlog(msolv/1000.0/dsolv)
+           end if
+!
+           if ( fsoln ) then
+             mol(imol)%conf(iconf)%G = mol(imol)%conf(iconf)%G         &
+                                             + Rjul*temp*dlog(Ratm*temp)
+             mol(imol)%conf(iconf)%H = mol(imol)%conf(iconf)%H         &
+                                             + Rjul*temp*dlog(Ratm*temp)
            end if
 !
          end do
